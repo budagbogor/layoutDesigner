@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mobeng Workshop Layout",
+  "type": "object",
+  "required": [
+    "project",
+    "site",
+    "building",
+    "layout"
+  ],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "unit",
+        "standard_version_id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "meter"
+          ]
+        },
+        "standard_version_id": {
+          "type": "string"
+        }
+      }
+    },
+    "site": {
+      "type": "object",
+      "required": [
+        "width",
+        "length"
+      ],
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "length": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "road_side": {
+          "type": "string",
+          "enum": [
+            "north",
+            "south",
+            "east",
+            "west"
+          ]
+        },
+        "road_width": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "building": {
+      "type": "object",
+      "required": [
+        "width",
+        "length"
+      ],
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "length": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "required": [
+        "status",
+        "objects"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "generated",
+            "validated",
+            "approved"
+          ]
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/layoutObject"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "geometry": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "width",
+        "length",
+        "rotation"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "length": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation": {
+          "type": "number"
+        }
+      }
+    },
+    "layoutObject": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "layer",
+        "geometry"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "geometry": {
+          "$ref": "#/$defs/geometry"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

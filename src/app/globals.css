@@ -1,0 +1,217 @@
+:root {
+  --bg-primary: #0f141c;
+  --bg-secondary: #161d28;
+  --bg-panel: #1c2433;
+  --bg-canvas: #0b0f15;
+  --border-color: #283344;
+  --border-light: #3a475d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b9bb4;
+  --text-muted: #57657a;
+  --accent-cyan: #00d2ff;
+  --accent-blue: #2f81f7;
+  --accent-green: #238636;
+  --accent-amber: #d29922;
+  --accent-red: #f85149;
+  --cad-grid-major: #202b3c;
+  --cad-grid-minor: #141b26;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cad-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--bg-primary);
+}
+
+.cad-header {
+  height: 44px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 16px;
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-badge {
+  background: var(--accent-cyan);
+  color: #050a10;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.brand-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.header-status-badge {
+  background: rgba(47, 129, 247, 0.15);
+  border: 1px solid rgba(47, 129, 247, 0.35);
+  color: #79c0ff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.cad-main {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.cad-toolbar {
+  width: 48px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 8px;
+}
+
+.cad-viewport-placeholder {
+  flex: 1;
+  background-color: var(--bg-canvas);
+  background-image: 
+    linear-gradient(var(--cad-grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cad-grid-major) 1px, transparent 1px),
+    linear-gradient(var(--cad-grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cad-grid-minor) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.viewport-info-card {
+  background: rgba(28, 36, 51, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 24px 32px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.viewport-info-card h2 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: var(--accent-cyan);
+}
+
+.viewport-info-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.viewport-info-card .specs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.specs-item {
+  background: rgba(15, 20, 28, 0.7);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.specs-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.specs-val {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.cad-sidebar {
+  width: 280px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-panel-header {
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.sidebar-panel-content {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.cad-footer {
+  height: 28px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}

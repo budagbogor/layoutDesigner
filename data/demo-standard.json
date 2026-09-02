@@ -1,0 +1,91 @@
+{
+  "id": "mobeng-standard",
+  "name": "Mobeng Workshop Standard",
+  "version": "0.1-demo",
+  "status": "draft",
+  "note": "Demo values only. Replace with verified engineering/manufacturer/regulatory values before production.",
+  "parameters": [
+    {
+      "key": "building.wall_thickness",
+      "value": 0.15,
+      "unit": "meter",
+      "constraint_level": "SOFT",
+      "source_type": "demo"
+    },
+    {
+      "key": "vehicle.mpv.length",
+      "value": 4.7,
+      "unit": "meter",
+      "constraint_level": "SOFT",
+      "source_type": "demo"
+    },
+    {
+      "key": "vehicle.mpv.width",
+      "value": 1.8,
+      "unit": "meter",
+      "constraint_level": "SOFT",
+      "source_type": "demo"
+    },
+    {
+      "key": "grid.size",
+      "value": 0.1,
+      "unit": "meter",
+      "constraint_level": "OPTIMIZATION",
+      "source_type": "demo"
+    }
+  ],
+  "rules": [
+    {
+      "id": "BOUNDARY-001",
+      "name": "Object must remain inside building",
+      "severity": "HARD",
+      "active": true
+    },
+    {
+      "id": "COLLISION-001",
+      "name": "Forbidden objects cannot overlap",
+      "severity": "HARD",
+      "active": true
+    },
+    {
+      "id": "FLOW-001",
+      "name": "Required vehicle route must be connected",
+      "severity": "HARD",
+      "active": true
+    }
+  ],
+  "scoring": [
+    {
+      "key": "vehicle_flow",
+      "weight": 25
+    },
+    {
+      "key": "space_efficiency",
+      "weight": 20
+    },
+    {
+      "key": "capacity",
+      "weight": 15
+    },
+    {
+      "key": "equipment_access",
+      "weight": 10
+    },
+    {
+      "key": "technician_flow",
+      "weight": 10
+    },
+    {
+      "key": "customer_flow",
+      "weight": 5
+    },
+    {
+      "key": "safety",
+      "weight": 10
+    },
+    {
+      "key": "future_expansion",
+      "weight": 5
+    }
+  ]
+}

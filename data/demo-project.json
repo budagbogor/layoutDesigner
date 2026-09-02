@@ -1,0 +1,134 @@
+{
+  "project": {
+    "id": "demo-001",
+    "name": "Mobeng Workshop Demo",
+    "unit": "meter",
+    "standard_version_id": "mobeng-standard@0.1-demo"
+  },
+  "site": {
+    "width": 20,
+    "length": 30,
+    "road_side": "south",
+    "road_width": 8
+  },
+  "building": {
+    "width": 18,
+    "length": 25
+  },
+  "services": [
+    {
+      "type": "general_service",
+      "quantity": 4
+    },
+    {
+      "type": "suspension",
+      "quantity": 2
+    },
+    {
+      "type": "tire",
+      "quantity": 1
+    },
+    {
+      "type": "wheel_alignment",
+      "quantity": 1
+    }
+  ],
+  "equipment": [
+    {
+      "type": "2_post_lift",
+      "quantity": 6
+    },
+    {
+      "type": "tire_changer",
+      "quantity": 1
+    },
+    {
+      "type": "wheel_balancer",
+      "quantity": 1
+    },
+    {
+      "type": "wheel_alignment",
+      "quantity": 1
+    },
+    {
+      "type": "compressor",
+      "quantity": 1
+    }
+  ],
+  "layout": {
+    "status": "draft",
+    "score": null,
+    "objects": [
+      {
+        "id": "bay-01",
+        "type": "service_bay",
+        "layer": "08-SERVICE-BAY",
+        "geometry": {
+          "x": 2.0,
+          "y": 3.0,
+          "width": 4.0,
+          "length": 7.0,
+          "rotation": 0
+        },
+        "metadata": {
+          "name": "Service Bay 1"
+        }
+      },
+      {
+        "id": "lift-01",
+        "type": "equipment",
+        "layer": "06-LIFT",
+        "geometry": {
+          "x": 3.0,
+          "y": 4.5,
+          "width": 2.0,
+          "length": 4.0,
+          "rotation": 0
+        },
+        "metadata": {
+          "equipmentType": "2_post_lift",
+          "name": "2-Post Lift 1"
+        }
+      },
+      {
+        "id": "vehicle-01",
+        "type": "vehicle",
+        "layer": "05-VEHICLE",
+        "geometry": {
+          "x": 3.1,
+          "y": 4.2,
+          "width": 1.8,
+          "length": 4.7,
+          "rotation": 0
+        },
+        "metadata": {
+          "vehicleType": "MPV"
+        }
+      },
+      {
+        "id": "wall-01",
+        "type": "wall",
+        "layer": "01-WALL",
+        "geometry": {
+          "x": 8.0,
+          "y": 3.0,
+          "width": 0.2,
+          "length": 8.0,
+          "rotation": 0
+        }
+      },
+      {
+        "id": "col-01",
+        "type": "column",
+        "layer": "02-COLUMN",
+        "geometry": {
+          "x": 8.0,
+          "y": 12.0,
+          "width": 0.6,
+          "length": 0.6,
+          "rotation": 0
+        }
+      }
+    ]
+  }
+}
