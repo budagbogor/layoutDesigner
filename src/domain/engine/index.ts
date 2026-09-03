@@ -18,3 +18,5 @@ export * from './strategies/balancedStrategy';
 export * from './strategies/premiumFlowStrategy';
 export * from './evaluation/evaluationTypes';
 export * from './evaluation/strategyEvaluator';
+export * from './generator/candidateValidator';
+export * from './generator/candidateGenerator';

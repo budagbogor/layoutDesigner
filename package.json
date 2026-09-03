@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:sumopod": "vitest run tests/integration/sumopod-connection.manual.test.ts"
   },
   "dependencies": {
     "next": "^15.2.1",

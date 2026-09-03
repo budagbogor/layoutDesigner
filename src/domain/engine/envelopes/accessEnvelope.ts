@@ -77,12 +77,14 @@ export function createAccessEnvelope(
   const rotation = normalizeAngle(roundMillimeter(objGeo.rotation));
 
   // 2. Compute the directional access corridor:
-  // In local space, the entrance threshold is along the Y=0 edge.
-  // The approach corridor projects outward in the -Y direction by approachDepth.
-  // Local BL is at (0, -approachDepth).
+  // By default (front), the entrance threshold is along the Y=0 edge, projecting in -Y direction.
+  // For 'rear' (e.g. South row bays facing northward into central aisle), entrance is at Y=length, projecting in +Y direction.
+  const isRear = object.metadata?.accessDirection === 'rear';
   const unrotatedBL = {
     x: roundMillimeter(objGeo.x),
-    y: roundMillimeter(objGeo.y - approachDepth),
+    y: isRear
+      ? roundMillimeter(objGeo.y + objGeo.length)
+      : roundMillimeter(objGeo.y - approachDepth),
   };
 
   // 3. Rotate the corridor concentrically around the object's origin (x, y)

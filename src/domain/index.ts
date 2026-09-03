@@ -11,3 +11,4 @@ export * from './validation/types';
 export * from './validation/boundaryValidator';
 export * from './export/svgExporter';
 export * from './engine';
+export * from './requirements/requirementTypes';

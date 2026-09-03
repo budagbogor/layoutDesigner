@@ -16,7 +16,7 @@ import {
  * - Only nodes and edges backed by actual input or standard requirements are created.
  * - If access points, customer zones, or expansion reserves are omitted in input, their nodes are omitted.
  * - Node and edge IDs are strictly deterministic.
- * - Every node and edge carries clear provenance.
+ * - Every node and edge carries clear provenance, severity ('HARD' vs 'SOFT'), and ruleId.
  */
 export function buildLayoutTopology(
   input: LayoutEngineInput,
@@ -59,6 +59,7 @@ export function buildLayoutTopology(
     attributes: {
       width: input.building.width,
       length: input.building.length,
+      frontSetbackMeters: input.building.frontSetbackMeters,
     },
   };
   nodes.push(buildingNode);
@@ -69,6 +70,8 @@ export function buildLayoutTopology(
     fromNodeId: siteNode.id,
     toNodeId: buildingNode.id,
     relation: 'CONNECTED',
+    severity: 'HARD',
+    ruleId: 'STRUCT-001',
     provenance: {
       source: 'input',
       referenceKey: 'building',
@@ -99,6 +102,8 @@ export function buildLayoutTopology(
     fromNodeId: buildingNode.id,
     toNodeId: circulationNode.id,
     relation: 'CONNECTED',
+    severity: 'HARD',
+    ruleId: 'STRUCT-002',
     provenance: {
       source: 'derived',
       description: 'Circulation spine is situated inside the building shell',
@@ -136,6 +141,8 @@ export function buildLayoutTopology(
         fromNodeId: buildingNode.id,
         toNodeId: entryNode.id,
         relation: 'ADJACENT',
+        severity: 'HARD',
+        ruleId: 'ACCESS-001',
         provenance: {
           source: 'input',
           referenceKey: ap.id,
@@ -149,6 +156,8 @@ export function buildLayoutTopology(
         fromNodeId: entryNode.id,
         toNodeId: circulationNode.id,
         relation: 'CONNECTED',
+        severity: 'HARD',
+        ruleId: 'FLOW-001',
         provenance: {
           source: 'input',
           referenceKey: ap.id,
@@ -184,6 +193,8 @@ export function buildLayoutTopology(
       fromNodeId: circulationNode.id,
       toNodeId: serviceNode.id,
       relation: 'ACCESSIBLE',
+      severity: 'HARD',
+      ruleId: 'FLOW-BAY-001',
       provenance: {
         source: 'standard',
         referenceKey: 'circulation.bay_approach_depth',
@@ -216,6 +227,8 @@ export function buildLayoutTopology(
         fromNodeId: equipmentNode.id,
         toNodeId: serviceNode.id,
         relation: 'SERVES',
+        severity: 'SOFT',
+        ruleId: 'PREF-EQUIP-001',
         provenance: {
           source: 'derived',
           description: 'Equipment zone provides dedicated machinery support to the service bays',
@@ -224,8 +237,8 @@ export function buildLayoutTopology(
     }
   }
 
-  // 6. Customer Zone Node (ONLY if customerZoneRequired is true)
-  if (input.program.customerZoneRequired) {
+  // 6. Generic Customer Zone Node (ONLY if customerZoneRequired is true and no fine-grained lounge is requested)
+  if (input.program.customerZoneRequired && !input.program.ancillarySpaces?.customerLounge) {
     const customerNode: TopologyNode = {
       id: 'node-customer-zone',
       type: 'CUSTOMER_ZONE',
@@ -245,6 +258,8 @@ export function buildLayoutTopology(
       fromNodeId: buildingNode.id,
       toNodeId: customerNode.id,
       relation: 'ADJACENT',
+      severity: 'HARD',
+      ruleId: 'STRUCT-CUST-001',
       provenance: {
         source: 'input',
         referenceKey: 'program.customerZoneRequired',
@@ -257,6 +272,8 @@ export function buildLayoutTopology(
       fromNodeId: circulationNode.id,
       toNodeId: customerNode.id,
       relation: 'ADJACENT',
+      severity: 'SOFT',
+      ruleId: 'PREF-CUST-002',
       provenance: {
         source: 'derived',
         description: 'Customer zone is adjacent to circulation for visitor pedestrian access',
@@ -264,7 +281,384 @@ export function buildLayoutTopology(
     });
   }
 
-  // 7. Expansion Reserve Node (ONLY if futureExpansionBays > 0)
+  // 7. Fine-Grained Ancillary Spaces (Clean / Customer Areas)
+  const anc = input.program.ancillarySpaces;
+
+  let loungeNode: TopologyNode | undefined;
+  if (anc?.customerLounge) {
+    loungeNode = {
+      id: 'node-customer-lounge',
+      type: 'CUSTOMER_LOUNGE',
+      name: 'Customer Waiting Lounge',
+      intent: 'Comfortable waiting area for customers with reception/seating',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.customerLounge',
+        description: 'Customer lounge explicitly requested in ancillary spaces program',
+      },
+    };
+    nodes.push(loungeNode);
+
+    edges.push({
+      id: 'edge-building-customer-lounge',
+      fromNodeId: buildingNode.id,
+      toNodeId: loungeNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-LOUNGE-001',
+      provenance: { source: 'derived', description: 'Customer lounge is inside building shell' },
+    });
+
+    edges.push({
+      id: 'edge-circulation-customer-lounge',
+      fromNodeId: circulationNode.id,
+      toNodeId: loungeNode.id,
+      relation: 'ACCESSIBLE',
+      severity: 'HARD',
+      ruleId: 'FLOW-LOUNGE-001',
+      provenance: { source: 'derived', description: 'Accessible from circulation route' },
+    });
+
+    // Visibility requirement: Lounge with bay view to service bays (Active ONLY if requested!)
+    if (anc.loungeWithBayView && totalBays > 0) {
+      edges.push({
+        id: 'edge-lounge-visibility-service',
+        fromNodeId: loungeNode.id,
+        toNodeId: 'node-service-zone',
+        relation: 'VISIBILITY',
+        severity: 'SOFT',
+        ruleId: 'USER-VIS-001',
+        description: 'Customer lounge has direct line-of-sight visual connection into service bays',
+        provenance: {
+          source: 'input',
+          referenceKey: 'program.ancillarySpaces.loungeWithBayView',
+          description: 'Lounge with bay view requested in program',
+        },
+      });
+    }
+  }
+
+  let cashierNode: TopologyNode | undefined;
+  if (anc?.cashierOffice) {
+    cashierNode = {
+      id: 'node-cashier-office',
+      type: 'CASHIER_OFFICE',
+      name: 'Cashier & Administration Office',
+      intent: 'Payment counter and workshop administrative work area',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.cashierOffice',
+        description: 'Cashier/admin office requested in program',
+      },
+    };
+    nodes.push(cashierNode);
+
+    edges.push({
+      id: 'edge-building-cashier-office',
+      fromNodeId: buildingNode.id,
+      toNodeId: cashierNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-CASHIER-001',
+      provenance: { source: 'derived', description: 'Cashier office is inside building shell' },
+    });
+
+    if (loungeNode) {
+      edges.push({
+        id: 'edge-lounge-cashier-adjacent',
+        fromNodeId: loungeNode.id,
+        toNodeId: cashierNode.id,
+        relation: 'ADJACENT',
+        severity: 'SOFT',
+        ruleId: 'PREF-CUST-001',
+        provenance: { source: 'derived', description: 'Cashier is adjacent to customer lounge for payment' },
+      });
+    }
+  }
+
+  if (anc?.restroom) {
+    const restroomNode: TopologyNode = {
+      id: 'node-restroom',
+      type: 'RESTROOM',
+      name: 'Customer & Staff Restroom',
+      intent: 'Sanitary toilet and handwashing facility',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.restroom',
+        description: 'Restroom facility requested in program',
+      },
+    };
+    nodes.push(restroomNode);
+
+    edges.push({
+      id: 'edge-building-restroom',
+      fromNodeId: buildingNode.id,
+      toNodeId: restroomNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-RESTROOM-001',
+      provenance: { source: 'derived', description: 'Restroom is inside building shell' },
+    });
+
+    if (loungeNode) {
+      edges.push({
+        id: 'edge-lounge-restroom-accessible',
+        fromNodeId: loungeNode.id,
+        toNodeId: restroomNode.id,
+        relation: 'ACCESSIBLE',
+        severity: 'HARD',
+        ruleId: 'FLOW-RESTROOM-001',
+        provenance: { source: 'derived', description: 'Restroom is directly accessible from customer lounge' },
+      });
+    }
+  }
+
+  if (anc?.staffRoom) {
+    const staffRoomNode: TopologyNode = {
+      id: 'node-staff-room',
+      type: 'STAFF_ROOM',
+      name: 'Technician & Staff Break Room',
+      intent: 'Rest area and lockers for workshop technicians and staff',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.staffRoom',
+        description: 'Staff break room requested in program',
+      },
+    };
+    nodes.push(staffRoomNode);
+
+    edges.push({
+      id: 'edge-building-staff-room',
+      fromNodeId: buildingNode.id,
+      toNodeId: staffRoomNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-STAFF-001',
+      provenance: { source: 'derived', description: 'Staff room is inside building shell' },
+    });
+  }
+
+  // 8. Fine-Grained Ancillary Spaces (Operational / Service Areas)
+  let warehouseNode: TopologyNode | undefined;
+  if (anc?.partsWarehouse) {
+    warehouseNode = {
+      id: 'node-parts-warehouse',
+      type: 'PARTS_WAREHOUSE',
+      name: 'Spare Parts Warehouse & Storage',
+      intent: 'Secure storage racks for automotive replacement parts and fluids',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.partsWarehouse',
+        description: 'Parts warehouse storage requested in program',
+      },
+    };
+    nodes.push(warehouseNode);
+
+    edges.push({
+      id: 'edge-building-parts-warehouse',
+      fromNodeId: buildingNode.id,
+      toNodeId: warehouseNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-PARTS-001',
+      provenance: { source: 'derived', description: 'Parts warehouse is inside building shell' },
+    });
+
+    if (totalBays > 0) {
+      edges.push({
+        id: 'edge-warehouse-serves-service',
+        fromNodeId: warehouseNode.id,
+        toNodeId: 'node-service-zone',
+        relation: 'SERVES',
+        severity: 'HARD',
+        ruleId: 'FLOW-PARTS-001',
+        provenance: { source: 'derived', description: 'Parts warehouse supplies parts to service bays' },
+      });
+      edges.push({
+        id: 'edge-warehouse-service-adjacent',
+        fromNodeId: warehouseNode.id,
+        toNodeId: 'node-service-zone',
+        relation: 'ADJACENT',
+        severity: 'SOFT',
+        ruleId: 'PREF-PARTS-001',
+        provenance: { source: 'derived', description: 'Parts warehouse is adjacent to service area for technician access' },
+      });
+    }
+
+    if (cashierNode) {
+      edges.push({
+        id: 'edge-warehouse-cashier-adjacent',
+        fromNodeId: warehouseNode.id,
+        toNodeId: cashierNode.id,
+        relation: 'ADJACENT',
+        severity: 'SOFT',
+        ruleId: 'PREF-ADMIN-001',
+        provenance: { source: 'derived', description: 'Parts warehouse is coordinated with cashier office' },
+      });
+    }
+  }
+
+  if (anc?.compressorRoom) {
+    const compressorNode: TopologyNode = {
+      id: 'node-compressor-room',
+      type: 'COMPRESSOR_ROOM',
+      name: 'Air Compressor Acoustic Enclosure',
+      intent: 'Dedicated sound-isolated room for air compressor and pneumatic lines',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.compressorRoom',
+        description: 'Compressor room requested in program',
+      },
+    };
+    nodes.push(compressorNode);
+
+    edges.push({
+      id: 'edge-building-compressor-room',
+      fromNodeId: buildingNode.id,
+      toNodeId: compressorNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-COMP-001',
+      provenance: { source: 'derived', description: 'Compressor room is inside building shell' },
+    });
+
+    if (totalBays > 0) {
+      edges.push({
+        id: 'edge-compressor-serves-service',
+        fromNodeId: compressorNode.id,
+        toNodeId: 'node-service-zone',
+        relation: 'SERVES',
+        severity: 'SOFT',
+        ruleId: 'PREF-COMP-001',
+        provenance: { source: 'derived', description: 'Compressor supplies pneumatic pressure to service bays' },
+      });
+    }
+  }
+
+  if (anc?.oilWasteStorage) {
+    const oilWasteNode: TopologyNode = {
+      id: 'node-oil-waste-storage',
+      type: 'OIL_WASTE_STORAGE',
+      name: 'Hazardous Waste (B3) & Oil Storage',
+      intent: 'Segregated containment area for used oil drums and hazardous waste',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.oilWasteStorage',
+        description: 'Oil and waste storage requested in program',
+      },
+    };
+    nodes.push(oilWasteNode);
+
+    edges.push({
+      id: 'edge-building-oil-waste-storage',
+      fromNodeId: buildingNode.id,
+      toNodeId: oilWasteNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-WASTE-001',
+      provenance: { source: 'derived', description: 'Oil waste storage is inside building shell' },
+    });
+
+    if (totalBays > 0) {
+      edges.push({
+        id: 'edge-oil-waste-serves-service',
+        fromNodeId: oilWasteNode.id,
+        toNodeId: 'node-service-zone',
+        relation: 'SERVES',
+        severity: 'SOFT',
+        ruleId: 'PREF-WASTE-001',
+        provenance: { source: 'derived', description: 'Oil waste storage collects waste fluid from service bays' },
+      });
+    }
+  }
+
+  // 9. Site Parking Spaces (Outside Building, on Site Property)
+  const parking = input.site.parking;
+  if (parking?.customerParkingSpaces && parking.customerParkingSpaces > 0) {
+    const custParkingNode: TopologyNode = {
+      id: 'node-customer-parking',
+      type: 'CUSTOMER_PARKING',
+      name: 'Customer Vehicle Parking',
+      intent: 'Designated parking stalls on site for customer vehicles',
+      provenance: {
+        source: 'input',
+        referenceKey: 'site.parking.customerParkingSpaces',
+        description: `${parking.customerParkingSpaces} customer parking stall(s) requested`,
+      },
+      attributes: {
+        parkingSpaces: parking.customerParkingSpaces,
+      },
+    };
+    nodes.push(custParkingNode);
+
+    edges.push({
+      id: 'edge-site-customer-parking',
+      fromNodeId: siteNode.id,
+      toNodeId: custParkingNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'PROG-PARK-001',
+      provenance: { source: 'derived', description: 'Customer parking is situated on the site' },
+    });
+  }
+
+  if (parking?.staffParkingSpaces && parking.staffParkingSpaces > 0) {
+    const staffParkingNode: TopologyNode = {
+      id: 'node-staff-parking',
+      type: 'STAFF_PARKING',
+      name: 'Staff Vehicle Parking',
+      intent: 'Dedicated parking stalls on site for workshop technicians and personnel',
+      provenance: {
+        source: 'input',
+        referenceKey: 'site.parking.staffParkingSpaces',
+        description: `${parking.staffParkingSpaces} staff parking stall(s) requested`,
+      },
+      attributes: {
+        parkingSpaces: parking.staffParkingSpaces,
+      },
+    };
+    nodes.push(staffParkingNode);
+
+    edges.push({
+      id: 'edge-site-staff-parking',
+      fromNodeId: siteNode.id,
+      toNodeId: staffParkingNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'PROG-PARK-002',
+      provenance: { source: 'derived', description: 'Staff parking is situated on the site' },
+    });
+  }
+
+  if (parking?.vehicleStagingSpaces && parking.vehicleStagingSpaces > 0) {
+    const stagingNode: TopologyNode = {
+      id: 'node-vehicle-staging',
+      type: 'VEHICLE_STAGING',
+      name: 'Vehicle Staging & Queuing Area',
+      intent: 'Holding area on site for vehicles awaiting service bay allocation',
+      provenance: {
+        source: 'input',
+        referenceKey: 'site.parking.vehicleStagingSpaces',
+        description: `${parking.vehicleStagingSpaces} vehicle staging stall(s) requested`,
+      },
+      attributes: {
+        stagingSpaces: parking.vehicleStagingSpaces,
+      },
+    };
+    nodes.push(stagingNode);
+
+    edges.push({
+      id: 'edge-site-vehicle-staging',
+      fromNodeId: siteNode.id,
+      toNodeId: stagingNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'PROG-STAGE-001',
+      provenance: { source: 'derived', description: 'Vehicle staging area is situated on the site' },
+    });
+  }
+
+  // 10. Expansion Reserve Node (ONLY if futureExpansionBays > 0)
   if (input.program.futureExpansionBays > 0) {
     const expansionNode: TopologyNode = {
       id: 'node-expansion-reserve',
@@ -288,6 +682,8 @@ export function buildLayoutTopology(
       fromNodeId: buildingNode.id,
       toNodeId: expansionNode.id,
       relation: 'ADJACENT',
+      severity: 'SOFT',
+      ruleId: 'PROG-EXP-001',
       provenance: {
         source: 'input',
         referenceKey: 'program.futureExpansionBays',

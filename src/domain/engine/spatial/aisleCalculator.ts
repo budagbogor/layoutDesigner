@@ -13,6 +13,7 @@ export interface AisleSpecification {
   length: number;                 // Length along the aisle corridor axis in meters
   rotation?: number;              // Orientation degrees in CAD space (default: 0)
   widthParameterKey?: string;     // Optional custom standard parameter key
+  customWidth?: number;           // Optional explicit width in meters (must be >= min_width standard)
 }
 
 export interface ApproachSpecification {
@@ -64,7 +65,9 @@ export function calculateAisleEnvelope(
 ): ObjectEnvelope {
   const paramKey = spec.widthParameterKey ?? 'circulation.drive_aisle.min_width';
   const widthParam = accessor.getRequiredParameter(paramKey);
-  const aisleWidth = roundMillimeter(widthParam.value);
+  const aisleWidth = spec.customWidth
+    ? roundMillimeter(spec.customWidth)
+    : roundMillimeter(widthParam.value);
   const corridorLength = roundMillimeter(spec.length);
   const rotation = normalizeAngle(roundMillimeter(spec.rotation ?? 0));
 

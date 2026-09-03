@@ -6,6 +6,14 @@ import {
   createLayoutTopology,
 } from './topologyTypes';
 
+export type ProgramSpaceCategory =
+  | 'CUSTOMER_CLEAN'
+  | 'SERVICE_OPERATIONAL'
+  | 'SERVICE_BAY'
+  | 'SITE_PARKING'
+  | 'STRUCTURAL'
+  | 'CIRCULATION';
+
 export interface CapacityRequirementIntent {
   readonly targetQuantity: number;
   readonly unit: string;
@@ -23,10 +31,17 @@ export interface ZonePriorityIntent {
   readonly standardReferenceKey: string;
 }
 
+export interface VisibilityRequirementIntent {
+  readonly targetNodeId: string;
+  readonly description?: string;
+}
+
 export interface ZoneIntentMetadata {
+  readonly spaceCategory?: ProgramSpaceCategory;
   readonly capacity?: CapacityRequirementIntent;
   readonly adjacencyRequirements?: readonly string[];
   readonly accessibilityRequirements?: readonly string[];
+  readonly visibilityRequirements?: readonly VisibilityRequirementIntent[];
   readonly expansion?: ExpansionRequirementIntent;
   readonly priority?: ZonePriorityIntent;
   readonly notes?: readonly string[];
@@ -76,14 +91,41 @@ export function deriveTopologyZones(
       .map((e) => (e.fromNodeId === node.id ? e.toNodeId : e.fromNodeId))
       .sort((a, b) => a.localeCompare(b));
 
+    // 3. Resolve visibility requirements from graph edges
+    const visibilityRequirements = edges
+      .filter((e) => e.relation === 'VISIBILITY' && e.fromNodeId === node.id)
+      .map((e) =>
+        Object.freeze({
+          targetNodeId: e.toNodeId,
+          description: e.description,
+        })
+      );
+
+    let spaceCategory: ProgramSpaceCategory | undefined;
     let capacity: CapacityRequirementIntent | undefined;
     let expansion: ExpansionRequirementIntent | undefined;
     let priority: ZonePriorityIntent | undefined;
     const notes: string[] = [];
 
-    // 3. Resolve zone-specific intent based on node type
+    // 4. Resolve zone-specific intent based on node type
     switch (node.type) {
+      case 'SITE':
+      case 'BUILDING': {
+        spaceCategory = 'STRUCTURAL';
+        break;
+      }
+
+      case 'ENTRY':
+      case 'CIRCULATION': {
+        spaceCategory = 'CIRCULATION';
+        if (node.type === 'CIRCULATION') {
+          notes.push(`Circulation mode: ${input.program.circulationRequirement}`);
+        }
+        break;
+      }
+
       case 'SERVICE_ZONE': {
+        spaceCategory = 'SERVICE_BAY';
         const totalBays = input.program.bays.reduce((s, b) => s + b.quantity, 0);
         const minCapParam = accessor.getParameter('bay.min_capacity');
 
@@ -106,6 +148,7 @@ export function deriveTopologyZones(
       }
 
       case 'EQUIPMENT_ZONE': {
+        spaceCategory = 'SERVICE_OPERATIONAL';
         const totalEquipment = input.program.equipment.reduce((s, e) => s + e.quantity, 0);
         capacity = {
           targetQuantity: totalEquipment,
@@ -123,13 +166,13 @@ export function deriveTopologyZones(
         break;
       }
 
-      case 'CUSTOMER_ZONE': {
-        if (input.program.customerZoneRequired) {
-          capacity = {
-            targetQuantity: 1,
-            unit: 'customer_reception_lounge',
-          };
-        }
+      case 'CUSTOMER_ZONE':
+      case 'CUSTOMER_LOUNGE': {
+        spaceCategory = 'CUSTOMER_CLEAN';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'customer_reception_lounge',
+        };
 
         const priorityKey = 'zoning.priority.customer_zone';
         if (options?.requireStandardPriority) {
@@ -142,7 +185,92 @@ export function deriveTopologyZones(
         break;
       }
 
+      case 'CASHIER_OFFICE': {
+        spaceCategory = 'CUSTOMER_CLEAN';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'cashier_admin_office',
+        };
+        break;
+      }
+
+      case 'RESTROOM': {
+        spaceCategory = 'CUSTOMER_CLEAN';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'sanitary_restroom',
+        };
+        break;
+      }
+
+      case 'STAFF_ROOM': {
+        spaceCategory = 'CUSTOMER_CLEAN';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'staff_break_room',
+        };
+        break;
+      }
+
+      case 'PARTS_WAREHOUSE': {
+        spaceCategory = 'SERVICE_OPERATIONAL';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'spare_parts_warehouse',
+        };
+        break;
+      }
+
+      case 'COMPRESSOR_ROOM': {
+        spaceCategory = 'SERVICE_OPERATIONAL';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'air_compressor_enclosure',
+        };
+        break;
+      }
+
+      case 'OIL_WASTE_STORAGE': {
+        spaceCategory = 'SERVICE_OPERATIONAL';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'hazardous_waste_storage',
+        };
+        break;
+      }
+
+      case 'CUSTOMER_PARKING': {
+        spaceCategory = 'SITE_PARKING';
+        const count = input.site.parking?.customerParkingSpaces ?? 0;
+        capacity = {
+          targetQuantity: count,
+          unit: 'customer_parking_stalls',
+        };
+        break;
+      }
+
+      case 'STAFF_PARKING': {
+        spaceCategory = 'SITE_PARKING';
+        const count = input.site.parking?.staffParkingSpaces ?? 0;
+        capacity = {
+          targetQuantity: count,
+          unit: 'staff_parking_stalls',
+        };
+        break;
+      }
+
+      case 'VEHICLE_STAGING': {
+        spaceCategory = 'SITE_PARKING';
+        const count = input.site.parking?.vehicleStagingSpaces ?? 0;
+        capacity = {
+          targetQuantity: count,
+          unit: 'vehicle_staging_stalls',
+        };
+        break;
+      }
+
       case 'EXPANSION_RESERVE': {
+        spaceCategory = 'SERVICE_BAY';
         if (input.program.futureExpansionBays > 0) {
           expansion = {
             plannedExpansionUnits: input.program.futureExpansionBays,
@@ -160,20 +288,18 @@ export function deriveTopologyZones(
         }
         break;
       }
-
-      case 'CIRCULATION': {
-        notes.push(`Circulation mode: ${input.program.circulationRequirement}`);
-        break;
-      }
     }
 
     // Build zone intent object (only include defined properties)
     const zoneIntent: ZoneIntentMetadata = Object.freeze({
+      spaceCategory,
       capacity: capacity ? Object.freeze(capacity) : undefined,
       adjacencyRequirements:
         adjacentNodeIds.length > 0 ? Object.freeze(adjacentNodeIds) : undefined,
       accessibilityRequirements:
         accessibleNodeIds.length > 0 ? Object.freeze(accessibleNodeIds) : undefined,
+      visibilityRequirements:
+        visibilityRequirements.length > 0 ? Object.freeze(visibilityRequirements) : undefined,
       expansion: expansion ? Object.freeze(expansion) : undefined,
       priority: priority ? Object.freeze(priority) : undefined,
       notes: notes.length > 0 ? Object.freeze(notes) : undefined,

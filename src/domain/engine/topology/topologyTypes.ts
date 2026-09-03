@@ -10,13 +10,29 @@ export type TopologyNodeType =
   | 'SERVICE_ZONE'
   | 'CUSTOMER_ZONE'
   | 'EXPANSION_RESERVE'
-  | 'EQUIPMENT_ZONE';
+  | 'EQUIPMENT_ZONE'
+  // Fine-Grained Ancillary Program Spaces (Clean / Customer)
+  | 'CUSTOMER_LOUNGE'
+  | 'CASHIER_OFFICE'
+  | 'RESTROOM'
+  | 'STAFF_ROOM'
+  // Fine-Grained Ancillary Program Spaces (Operational / Service)
+  | 'PARTS_WAREHOUSE'
+  | 'COMPRESSOR_ROOM'
+  | 'OIL_WASTE_STORAGE'
+  // Site Parking Spaces
+  | 'CUSTOMER_PARKING'
+  | 'STAFF_PARKING'
+  | 'VEHICLE_STAGING';
 
 export type TopologyEdgeRelation =
   | 'CONNECTED'
   | 'ADJACENT'
   | 'ACCESSIBLE'
-  | 'SERVES';
+  | 'SERVES'
+  | 'VISIBILITY';
+
+export type TopologyRuleSeverity = 'HARD' | 'SOFT';
 
 export interface TopologyProvenance {
   readonly source: 'input' | 'standard' | 'derived';
@@ -38,6 +54,8 @@ export interface TopologyEdge {
   readonly fromNodeId: string;
   readonly toNodeId: string;
   readonly relation: TopologyEdgeRelation;
+  readonly severity?: TopologyRuleSeverity; // 'HARD' (structural/essential) vs 'SOFT' (preference/optimization)
+  readonly ruleId?: string; // Rule identifier for tracing and audit
   readonly description?: string;
   readonly provenance: TopologyProvenance;
   readonly bidirectional?: boolean;

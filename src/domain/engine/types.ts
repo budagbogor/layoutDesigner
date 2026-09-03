@@ -29,12 +29,30 @@ export interface ProgramEquipmentRequirement {
 
 export type CirculationRequirementType = 'drive_through' | 'back_out_turnaround' | 'one_way_loop';
 
+export interface ProgramAncillarySpacesRequirement {
+  customerLounge?: boolean;
+  cashierOffice?: boolean;
+  partsWarehouse?: boolean;
+  restroom?: boolean;
+  compressorRoom?: boolean;
+  oilWasteStorage?: boolean;
+  staffRoom?: boolean;
+  loungeWithBayView?: boolean;
+}
+
+export interface SiteParkingRequirement {
+  customerParkingSpaces?: number;
+  staffParkingSpaces?: number;
+  vehicleStagingSpaces?: number;
+}
+
 export interface WorkshopProgram {
   bays: ProgramBayRequirement[];
   equipment: ProgramEquipmentRequirement[];
   vehicleClassKey: string;  // e.g., "vehicle.mpv", "vehicle.suv"
   circulationRequirement: CirculationRequirementType;
   customerZoneRequired: boolean;
+  ancillarySpaces?: ProgramAncillarySpacesRequirement;
   futureExpansionBays: number;
 }
 
@@ -46,10 +64,12 @@ export interface LayoutEngineInput {
     length: number;          // meters, > 0
     roadSide?: WallOrientation;
     roadWidth?: number;      // meters
+    parking?: SiteParkingRequirement;
   };
   building: {
     width: number;           // meters, > 0
     length: number;          // meters, > 0
+    frontSetbackMeters?: number; // meters from front road boundary, >= 0
   };
   accessPoints?: AccessPoint[];
   program: WorkshopProgram;

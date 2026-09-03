@@ -1,5 +1,6 @@
 import { LocalProjectRepository } from '@/application/adapters/LocalProjectRepository';
-import { CadWorkspace } from '@/presentation/components/workspace/CadWorkspace';
+import { AppShell } from '@/presentation/components/workspace/AppShell';
+import { getSumoPodEnvConfig } from '@/application/ai/providerConfig';
 
 export default async function Page() {
   const repo = new LocalProjectRepository();
@@ -9,5 +10,15 @@ export default async function Page() {
     return <div>Project not found</div>;
   }
 
-  return <CadWorkspace initialProject={project} />;
+  const envConfig = getSumoPodEnvConfig();
+
+  return (
+    <AppShell
+      initialProject={project}
+      initialMode="ai"
+      initialApiKey={envConfig.apiKey}
+      initialBaseUrl={envConfig.baseUrl}
+      initialModel={envConfig.model}
+    />
+  );
 }
