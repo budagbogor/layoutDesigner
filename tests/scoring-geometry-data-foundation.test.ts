@@ -26,6 +26,7 @@ import type { LayoutEngineInput } from '@/domain/engine/types';
 
 const completeStandard: WorkshopStandard = {
   id: 'std-fase-4-2c',
+  name: 'FASE 4.2C Standard',
   version: '2026.09-fase4.2c',
   status: 'published',
   parameters: [

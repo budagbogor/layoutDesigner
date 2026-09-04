@@ -61,9 +61,9 @@ const standardWithScoring: WorkshopStandard = {
     { key: 'door.vehicle.width', value: 3.5, unit: 'meter', constraint_level: 'HARD' },
     { key: 'door.pedestrian.width', value: 1.2, unit: 'meter', constraint_level: 'HARD' },
     // Scoring criteria
-    { key: 'scoring.capacity.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
-    { key: 'scoring.capacity.benchmark_min', value: 0, unit: 'bays', constraint_level: 'OPTIMIZATION' },
-    { key: 'scoring.capacity.benchmark_target', value: 6, unit: 'bays', constraint_level: 'OPTIMIZATION' },
+    { key: 'scoring.flow_continuity.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
+    { key: 'scoring.flow_continuity.benchmark_min', value: 0.0, unit: 'score', constraint_level: 'OPTIMIZATION' },
+    { key: 'scoring.flow_continuity.benchmark_target', value: 1.0, unit: 'score', constraint_level: 'OPTIMIZATION' },
     { key: 'scoring.rejections_count.direction', value: -1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
     { key: 'scoring.rejections_count.benchmark_min', value: 5, unit: 'count', constraint_level: 'OPTIMIZATION' },
     { key: 'scoring.rejections_count.benchmark_target', value: 0, unit: 'count', constraint_level: 'OPTIMIZATION' },
@@ -74,7 +74,7 @@ const standardWithScoring: WorkshopStandard = {
     { id: 'FLOW-BAY-AISLE-001', name: 'Bay Approach Accessibility', severity: 'HARD', active: true },
   ],
   scoring: [
-    { key: 'capacity', weight: 60 },
+    { key: 'flow_continuity', weight: 60 },
     { key: 'rejections_count', weight: 40 },
   ],
 };
