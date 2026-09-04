@@ -203,7 +203,7 @@ export function buildLayoutTopology(
     });
 
     // 5. Equipment Zone Node (Only if equipment is requested)
-    const totalEquipment = input.program.equipment.reduce((sum, e) => sum + e.quantity, 0);
+    const totalEquipment = input.program.equipment?.reduce((sum, e) => sum + e.quantity, 0) ?? 0;
     if (totalEquipment > 0) {
       const equipmentNode: TopologyNode = {
         id: 'node-equipment-zone',
@@ -216,7 +216,7 @@ export function buildLayoutTopology(
           description: `${totalEquipment} machine item(s) requested in program`,
         },
         attributes: {
-          equipmentTypes: input.program.equipment.map((e) => e.equipmentType),
+          equipmentTypes: input.program.equipment?.map((e) => e.equipmentType) ?? [],
         },
       };
       nodes.push(equipmentNode);

@@ -197,6 +197,7 @@ describe('FASE 4.2D — Scoring Metric Audit Resolution & Regression Tests', () 
   });
 
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // GROUP 2: vehicle_flow / flow_continuity / maneuvers Resolution
   // -------------------------------------------------------------------------
   describe('Group 2: vehicle_flow / flow_continuity / maneuvers Resolution', () => {
@@ -210,36 +211,22 @@ describe('FASE 4.2D — Scoring Metric Audit Resolution & Regression Tests', () 
       );
     });
 
-    it('[AUDIT-004] flow_continuity correctly distinguishes drive-through from back-out circulation', () => {
+    it('[AUDIT-004] flow_continuity is blocked as SCORING_GAP (requires CAD path topology graph)', () => {
       const driveThrough = makeCandidate({ bayCount: 4, circulationRequirement: 'drive_through' });
-      const backOut = makeCandidate({ bayCount: 4, circulationRequirement: 'back_out_turnaround' });
-
       const continuityStd = makeScoringStandard('flow_continuity', 'HIGHER_IS_BETTER', 0.0, 1.0);
       const accessor = new StandardAccessor(continuityStd);
 
-      const dtScore = evaluator.evaluate(driveThrough, accessor).criteria[0].rawValue;
-      const boScore = evaluator.evaluate(backOut, accessor).criteria[0].rawValue;
-
-      // PROOF: drive_through (1.0) scores higher than back_out (0.25)
-      expect(dtScore).toBe(1.0);
-      expect(boScore).toBe(0.25);
-      expect(dtScore).toBeGreaterThan(boScore);
+      expect(() => evaluator.evaluate(driveThrough, accessor)).toThrow(UnsupportedScoringCriterionError);
+      expect(() => evaluator.evaluate(driveThrough, accessor)).toThrow(/SCORING_GAP/);
     });
 
-    it('[AUDIT-005] maneuvers metric distinguishes DOUBLE_COMB from SINGLE_COMB under drive_through', () => {
+    it('[AUDIT-005] maneuvers metric is blocked as SCORING_GAP (requires swept-path turning geometry)', () => {
       const doubleComb = makeCandidate({ arrangement: 'DOUBLE_COMB_OPPOSING', circulationRequirement: 'drive_through' });
-      const singleComb = makeCandidate({ arrangement: 'SINGLE_COMB_NORTH', circulationRequirement: 'drive_through' });
-
       const maneuversStd = makeScoringStandard('maneuvers', 'LOWER_IS_BETTER', 2.0, 0.0);
       const accessor = new StandardAccessor(maneuversStd);
 
-      const doubleManeuvers = evaluator.evaluate(doubleComb, accessor).criteria[0].rawValue;
-      const singleManeuvers = evaluator.evaluate(singleComb, accessor).criteria[0].rawValue;
-
-      // DOUBLE_COMB drive_through = 0 maneuvers; SINGLE_COMB drive_through = 0.5 maneuvers
-      expect(doubleManeuvers).toBe(0.0);
-      expect(singleManeuvers).toBe(0.5);
-      expect(doubleManeuvers).toBeLessThan(singleManeuvers);
+      expect(() => evaluator.evaluate(doubleComb, accessor)).toThrow(UnsupportedScoringCriterionError);
+      expect(() => evaluator.evaluate(doubleComb, accessor)).toThrow(/SCORING_GAP/);
     });
   });
 
@@ -268,13 +255,14 @@ describe('FASE 4.2D — Scoring Metric Audit Resolution & Regression Tests', () 
   // -------------------------------------------------------------------------
   describe('Group 4: equipment_count & equipment_support Resolution', () => {
 
-    it('[AUDIT-007] equipment_count evaluates actual equipment units placed', () => {
+    it('[AUDIT-007] equipment_count is blocked from weighted scoring as DIAGNOSTIC only', () => {
       const candidate = makeCandidate({ equipmentCount: 3, withEquipmentAssociation: true });
 
       const countStd = makeScoringStandard('equipment_count', 'HIGHER_IS_BETTER', 0, 5);
-      const countRaw = evaluator.evaluate(candidate, new StandardAccessor(countStd)).criteria[0].rawValue;
-
-      expect(countRaw).toBe(3);
+      expect(() => evaluator.evaluate(candidate, new StandardAccessor(countStd))).toThrow(
+        UnsupportedScoringCriterionError
+      );
+      expect(() => evaluator.evaluate(candidate, new StandardAccessor(countStd))).toThrow(/DIAGNOSTIC/);
     });
 
     it('[AUDIT-008] equipment_support evaluates explicit bay matching ratio', () => {
@@ -315,10 +303,10 @@ describe('FASE 4.2D — Scoring Metric Audit Resolution & Regression Tests', () 
         version: '1.0-partial',
         status: 'published',
         parameters: [
-          { key: 'scoring.flow_continuity.benchmark_target', value: 1.0, unit: 'score', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.capacity_throughput.benchmark_target', value: 100.0, unit: 'm2/bay', constraint_level: 'OPTIMIZATION' },
         ],
         rules: [],
-        scoring: [{ key: 'flow_continuity', weight: 100 }],
+        scoring: [{ key: 'capacity_throughput', weight: 100 }],
       };
 
       const accessor = new StandardAccessor(partialStandard);
@@ -332,10 +320,10 @@ describe('FASE 4.2D — Scoring Metric Audit Resolution & Regression Tests', () 
         version: '1.0-no-target',
         status: 'published',
         parameters: [
-          { key: 'scoring.flow_continuity.benchmark_min', value: 0.0, unit: 'score', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.capacity_throughput.benchmark_min', value: 20.0, unit: 'm2/bay', constraint_level: 'OPTIMIZATION' },
         ],
         rules: [],
-        scoring: [{ key: 'flow_continuity', weight: 100 }],
+        scoring: [{ key: 'capacity_throughput', weight: 100 }],
       };
 
       const accessor = new StandardAccessor(partialStandard);

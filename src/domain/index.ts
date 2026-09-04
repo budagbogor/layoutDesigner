@@ -10,5 +10,6 @@ export * from './geometry/collision';
 export * from './validation/types';
 export * from './validation/boundaryValidator';
 export * from './export/svgExporter';
+export * from './export/cadRepresentation';
 export * from './engine';
 export * from './requirements/requirementTypes';

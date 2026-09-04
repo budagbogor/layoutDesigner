@@ -196,6 +196,11 @@ function getObjectSvgStyle(type: string): { fill: string; stroke: string; stroke
     case 'door':
     case 'window':
       return { fill: 'rgba(56, 189, 248, 0.2)', stroke: '#38bdf8', strokeWidth: 1.5, textColor: '#38bdf8' };
+    case 'circulation_path':
+      return { fill: 'rgba(34, 197, 94, 0.08)', stroke: '#22c55e', strokeWidth: 1.2, dash: '6 3', textColor: '#4ade80' };
+    case 'zone':
+    case 'custom':
+      return { fill: 'rgba(168, 85, 247, 0.12)', stroke: '#a855f7', strokeWidth: 1.2, textColor: '#c084fc' };
     default:
       return { fill: 'rgba(255, 255, 255, 0.08)', stroke: '#8b949e', strokeWidth: 1.0, textColor: '#8b9bb4' };
   }

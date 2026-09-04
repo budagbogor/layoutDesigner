@@ -31,16 +31,16 @@ export interface RawMetricExtractionResult {
  * Concrete StrategyEvaluator implementation.
  *
  * Responsibilities:
- * - Evaluates only valid scoring metrics whose data foundation is READY:
- *   1. flow_continuity (evaluates actual vehicle circulation path)
- *   2. maneuvers (evaluates maneuver complexity from spatialContext arrangement & circulation)
- *   3. capacity_throughput (evaluates usable service floor area per bay from buildingInterior)
- *   4. equipment_count (evaluates actual equipment units placed)
- *   5. equipment_support (evaluates actual equipment-to-bay service match ratio)
- *   6. rejections_count (evaluates soft warnings as diagnostic tiebreaker)
- * - Explicitly rejects unready metrics / gaps:
- *   - capacity, bay_count (HARD constraint)
- *   - vehicle_flow (DEPRECATED in favor of flow_continuity & maneuvers)
+ * - Evaluates only valid scoring metrics whose data foundation and engineering formulas are READY:
+ *   1. capacity_throughput (evaluates usable service floor area per bay from buildingInterior)
+ *   2. equipment_support (evaluates actual equipment-to-bay service match ratio)
+ * - Explicitly rejects unready metrics / heuristics / gaps:
+ *   - flow_continuity (SCORING_GAP: requires true geometric path topology & swept path verification)
+ *   - maneuvers (SCORING_GAP: requires true geometric swept path turn radius analysis)
+ *   - equipment_count (DIAGNOSTIC only: inventory count does not indicate layout quality)
+ *   - rejections_count (DIAGNOSTIC / tiebreaker only: not a weighted quality score)
+ *   - capacity, bay_count (HARD constraint: CAPACITY-BAYS-001)
+ *   - vehicle_flow (DEPRECATED legacy proxy)
  *   - bottlenecks, aisle_congestion (SCORING_GAP)
  * - Zero assumptions, zero fallbacks: missing standard parameters throw MissingStandardParameterError.
  * - Single Source of Truth score normalization (calculateNormalizedScore).
@@ -170,23 +170,35 @@ export class ConcreteStrategyEvaluator implements StrategyEvaluator {
     accessor: StandardAccessor
   ): RawMetricExtractionResult {
     switch (criterionKey) {
-      case 'flow_continuity':
-        return this.extractFlowContinuity(candidate);
-
-      case 'maneuvers':
-        return this.extractManeuvers(candidate);
-
       case 'capacity_throughput':
         return this.extractCapacityThroughput(candidate, accessor);
-
-      case 'equipment_count':
-        return this.extractEquipmentCount(candidate, accessor);
 
       case 'equipment_support':
         return this.extractEquipmentSupport(candidate, accessor);
 
+      case 'flow_continuity':
+        throw new UnsupportedScoringCriterionError(
+          criterionKey,
+          'Classified as SCORING_GAP: Evaluating true flow continuity requires actual CAD path topology graphs and door connectivity verification rather than heuristic requirement mapping.'
+        );
+
+      case 'maneuvers':
+        throw new UnsupportedScoringCriterionError(
+          criterionKey,
+          'Classified as SCORING_GAP: Evaluating maneuvers requires swept-path turning geometry and clearance calculations rather than arrangement lookup heuristics.'
+        );
+
+      case 'equipment_count':
+        throw new UnsupportedScoringCriterionError(
+          criterionKey,
+          'Classified as DIAGNOSTIC only: Equipment count is an inventory descriptor and does not indicate layout quality (more equipment does not equal higher quality layout). Use equipment_support for quality scoring.'
+        );
+
       case 'rejections_count':
-        return this.extractRejectionsCount(candidate);
+        throw new UnsupportedScoringCriterionError(
+          criterionKey,
+          'Classified as DIAGNOSTIC / tiebreaker only: Soft rejections count must not be evaluated as a weighted quality score.'
+        );
 
       case 'capacity':
       case 'bay_count':
@@ -198,19 +210,32 @@ export class ConcreteStrategyEvaluator implements StrategyEvaluator {
       case 'vehicle_flow':
         throw new UnsupportedScoringCriterionError(
           criterionKey,
-          'Deprecated legacy metric. Replaced by flow_continuity and maneuvers.'
+          'Deprecated legacy metric. Replaced by flow_continuity and maneuvers contracts.'
         );
 
       case 'bottlenecks':
       case 'aisle_congestion':
         throw new UnsupportedScoringCriterionError(
           criterionKey,
-          'Classified as SCORING_GAP: vehicle width standard parameter is required.'
+          'Classified as SCORING_GAP: Vehicle width standard parameter and aisle flow clearance calculation are required.'
         );
 
       default:
         throw new UnsupportedScoringCriterionError(criterionKey);
     }
+  }
+
+  /**
+   * Diagnostic extractor for non-scoring candidate metrics (e.g. inventory counts, soft warnings).
+   */
+  public extractDiagnosticMetrics(candidate: StrategyCandidate): {
+    readonly equipmentCount: number;
+    readonly softRejectionsCount: number;
+  } {
+    return Object.freeze({
+      equipmentCount: candidate.layout.objects.filter((o) => o.type === 'equipment').length,
+      softRejectionsCount: candidate.rejections.filter((r) => r.severity !== 'HARD').length,
+    });
   }
 
   /**
@@ -229,106 +254,7 @@ export class ConcreteStrategyEvaluator implements StrategyEvaluator {
   }
 
   // -------------------------------------------------------------------------
-  // Metric 1: FLOW_CONTINUITY
-  // -------------------------------------------------------------------------
-  private extractFlowContinuity(candidate: StrategyCandidate): RawMetricExtractionResult {
-    const isDisqualified =
-      candidate.status === 'DISQUALIFIED' ||
-      candidate.rejections.some((r) => r.isDisqualifying && r.severity === 'HARD');
-
-    const bays = candidate.layout.objects.filter((o) => o.type === 'service_bay');
-
-    if (isDisqualified) {
-      return {
-        rawValue: 0.0,
-        provenanceDescription: 'Flow path disconnected: candidate has disqualifying hard violations.',
-      };
-    }
-
-    if (bays.length === 0) {
-      return {
-        rawValue: 0.0,
-        provenanceDescription: 'Flow path incomplete: 0 service bays placed in candidate layout.',
-      };
-    }
-
-    const spatialContext = candidate.spatialContext;
-    const circReq = spatialContext?.circulationRequirement ?? 'back_out_turnaround';
-    const arrangement = spatialContext?.arrangement ?? 'SINGLE_COMB_NORTH';
-
-    let rawValue: number;
-    let pathDescription: string;
-
-    if (circReq === 'drive_through') {
-      rawValue = 1.0;
-      pathDescription = 'Continuous forward drive-through flow verified: ENTRY -> CIRCULATION -> SERVICE -> CIRCULATION -> EXIT';
-    } else if (circReq === 'one_way_loop') {
-      rawValue = 0.75;
-      pathDescription = 'One-way loop circulation verified: ENTRY -> ONE_WAY_LOOP -> SERVICE -> EXIT';
-    } else {
-      // back_out_turnaround
-      rawValue = 0.25;
-      pathDescription = 'Back-out turnaround circulation: ENTRY -> CIRCULATION -> SERVICE (requires reverse turnaround egress)';
-    }
-
-    return {
-      rawValue,
-      provenanceDescription: `${pathDescription}. Arrangement: ${arrangement}, Requirement: ${circReq}, Continuity Score: ${rawValue}.`,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Metric 2: MANEUVERS (Lower is better)
-  // -------------------------------------------------------------------------
-  private extractManeuvers(candidate: StrategyCandidate): RawMetricExtractionResult {
-    const isDisqualified =
-      candidate.status === 'DISQUALIFIED' ||
-      candidate.rejections.some((r) => r.isDisqualifying && r.severity === 'HARD');
-
-    if (isDisqualified) {
-      return {
-        rawValue: 3.0,
-        provenanceDescription: 'Disconnected vehicle flow: maximum maneuver penalty applied (3.0 maneuvers/bay).',
-      };
-    }
-
-    const spatialContext = candidate.spatialContext;
-    const circReq = spatialContext?.circulationRequirement ?? 'back_out_turnaround';
-    const arrangement = spatialContext?.arrangement ?? 'SINGLE_COMB_NORTH';
-
-    let rawValue: number;
-
-    if (circReq === 'drive_through') {
-      if (arrangement === 'DOUBLE_COMB_OPPOSING') {
-        rawValue = 0.0;
-      } else if (arrangement === 'SINGLE_COMB_NORTH') {
-        rawValue = 0.5;
-      } else {
-        rawValue = 0.5;
-      }
-    } else if (circReq === 'one_way_loop') {
-      if (arrangement === 'DOUBLE_COMB_OPPOSING') {
-        rawValue = 0.5;
-      } else {
-        rawValue = 1.0;
-      }
-    } else {
-      // back_out_turnaround
-      if (arrangement === 'DOUBLE_COMB_OPPOSING') {
-        rawValue = 1.5;
-      } else {
-        rawValue = 1.0;
-      }
-    }
-
-    return {
-      rawValue,
-      provenanceDescription: `Maneuver complexity: ${rawValue} maneuvers/bay for arrangement ${arrangement} under ${circReq} circulation.`,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Metric 3: CAPACITY_THROUGHPUT (m² usable service floor per bay)
+  // Valid Scoring Metric 1: CAPACITY_THROUGHPUT (m² usable service floor per bay)
   // -------------------------------------------------------------------------
   private extractCapacityThroughput(
     candidate: StrategyCandidate,
@@ -381,27 +307,7 @@ export class ConcreteStrategyEvaluator implements StrategyEvaluator {
   }
 
   // -------------------------------------------------------------------------
-  // Metric 4: EQUIPMENT_COUNT (Actual equipment units placed)
-  // -------------------------------------------------------------------------
-  private extractEquipmentCount(
-    candidate: StrategyCandidate,
-    accessor: StandardAccessor
-  ): RawMetricExtractionResult {
-    // Check standard benchmarks exist (zero fallback)
-    accessor.getRequiredNumericValue('scoring.equipment_count.benchmark_min');
-    accessor.getRequiredNumericValue('scoring.equipment_count.benchmark_target');
-
-    const equipment = candidate.layout.objects.filter((o) => o.type === 'equipment');
-    const rawValue = equipment.length;
-
-    return {
-      rawValue,
-      provenanceDescription: `Equipment allocation count: ${rawValue} equipment unit(s) placed in candidate layout.`,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Metric 5: EQUIPMENT_SUPPORT (Equipment-to-service match ratio)
+  // Valid Scoring Metric 2: EQUIPMENT_SUPPORT (Equipment-to-service match ratio)
   // -------------------------------------------------------------------------
   private extractEquipmentSupport(
     candidate: StrategyCandidate,
@@ -448,19 +354,6 @@ export class ConcreteStrategyEvaluator implements StrategyEvaluator {
     return {
       rawValue: supportRatio,
       provenanceDescription: `Equipment support ratio: ${supportRatio} (${supportedBaysCount}/${bays.length} service bays supported with matching equipment).`,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Metric 6: REJECTIONS_COUNT (Diagnostic tiebreaker)
-  // -------------------------------------------------------------------------
-  private extractRejectionsCount(candidate: StrategyCandidate): RawMetricExtractionResult {
-    const softWarnings = candidate.rejections.filter((r) => r.severity !== 'HARD');
-    const rawValue = softWarnings.length;
-
-    return {
-      rawValue,
-      provenanceDescription: `Diagnostic tiebreaker: ${rawValue} non-disqualifying soft warning(s).`,
     };
   }
 

@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { LayoutEngineInput, ObjectEnvelope, CirculationRequirementType } from '../types';
-import { LayoutObject } from '../../models/project';
+import { LayoutObject, CadLayerId } from '../../models/project';
 import { StandardAccessor } from '../StandardAccessor';
 import {
   LayoutStrategyId,
@@ -33,6 +33,7 @@ import { createAccessEnvelope } from '../envelopes/accessEnvelope';
 import { createSafetyEnvelope, hasSafetyRequirement } from '../envelopes/safetyEnvelope';
 import { roundMillimeter } from '../../geometry/precision';
 import { validateCandidateConstraints, CandidateValidationResult } from './candidateValidator';
+import { overlapsEnvelope } from '../spatial/spatialRelations';
 
 export type SpatialArrangementType =
   | 'SINGLE_COMB_NORTH'
@@ -261,7 +262,7 @@ export class CandidateGenerator {
       });
     }
 
-    // Generate entry corridor connecting access points to the main drive aisle
+    // Generate entry & exit corridors connecting access points to the main drive aisle
     if (input.accessPoints && input.accessPoints.length > 0) {
       for (const ap of input.accessPoints) {
         if (ap.wall === 'south') {
@@ -277,6 +278,23 @@ export class CandidateGenerator {
             generatedEnvelopes.push(entryEnv);
           } catch {
             // Optional entry corridor
+          }
+        } else if (ap.wall === 'north') {
+          const exitLength = roundMillimeter(building.length - bayY_North);
+          if (exitLength > 0) {
+            const exitSpec = {
+              id: `aisle-exit-${ap.id}`,
+              origin: { x: ap.offsetMeters, y: bayY_North },
+              length: exitLength,
+              rotation: 0,
+              widthParameterKey: 'door.vehicle.width',
+            };
+            try {
+              const exitEnv = SPATIAL_UTILITIES.calculateAisleEnvelope(exitSpec, accessor);
+              generatedEnvelopes.push(exitEnv);
+            } catch {
+              // Optional exit corridor
+            }
           }
         }
       }
@@ -445,13 +463,88 @@ export class CandidateGenerator {
     }
 
     // -----------------------------------------------------------------------
-    // Stage 7: Ancillary Spaces Allocation (Clean & Operational)
+    // Stage 7: Ancillary Spaces Allocation (Clean & Operational, Collision-Checked)
     // -----------------------------------------------------------------------
     const ancillarySpacesPlaced: string[] = [];
     const anc = program.ancillarySpaces;
 
     if (anc) {
-      let operationalX = currentEquipX;
+      let currentPlacingX = currentEquipX;
+
+      const tryPlaceAncillaryRoom = (
+        id: string,
+        width: number,
+        length: number,
+        layer: CadLayerId,
+        metadata: Record<string, unknown>,
+        spaceKey: string
+      ): boolean => {
+        if (currentPlacingX + width > maxX) {
+          internalRejections.push({
+            ruleId: 'CAPACITY-ANCILLARY-001',
+            severity: 'HARD',
+            isDisqualifying: true,
+            relatedObjectIds: [id],
+            reason: `Ancillary space '${id}' (${width}x${length}m) exceeds available building footprint under arrangement '${arrangement}'.`,
+            provenance: { source: 'input', referenceKey: `program.ancillarySpaces.${spaceKey}` },
+          });
+          return false;
+        }
+
+        if (wallThickness + length > aisleOriginY) {
+          internalRejections.push({
+            ruleId: 'CAPACITY-ANCILLARY-001',
+            severity: 'HARD',
+            isDisqualifying: true,
+            relatedObjectIds: [id],
+            reason: `Ancillary space '${id}' length (${length}m) intrudes into central drive aisle boundary.`,
+            provenance: { source: 'input', referenceKey: `program.ancillarySpaces.${spaceKey}` },
+          });
+          return false;
+        }
+
+        const roomObj: LayoutObject = {
+          id,
+          type: 'custom',
+          layer,
+          geometry: {
+            x: currentPlacingX,
+            y: wallThickness,
+            width,
+            length,
+            rotation: 0,
+          },
+          metadata,
+        };
+
+        const physEnv = createPhysicalEnvelope(roomObj, accessor);
+
+        // Check physical/working envelope collisions with already placed objects & aisles
+        const hasCollision = generatedEnvelopes.some((env) => {
+          if (env.type === 'PHYSICAL' || env.type === 'WORKING' || env.type === 'ACCESS') {
+            return overlapsEnvelope(physEnv, env);
+          }
+          return false;
+        });
+
+        if (hasCollision) {
+          internalRejections.push({
+            ruleId: 'COLLISION-PHYSICAL-001',
+            severity: 'HARD',
+            isDisqualifying: true,
+            relatedObjectIds: [id],
+            reason: `Ancillary space '${id}' collides with service bay physical/working envelope or previously placed elements.`,
+            provenance: { source: 'input', referenceKey: `program.ancillarySpaces.${spaceKey}` },
+          });
+          return false;
+        }
+
+        placedObjects.push(roomObj);
+        generatedEnvelopes.push(physEnv);
+        ancillarySpacesPlaced.push(spaceKey);
+        currentPlacingX = roundMillimeter(currentPlacingX + width + 1.0);
+        return true;
+      };
 
       // Operational Spaces (Front Support Zone)
       if (anc.oilWasteStorage) {
@@ -467,30 +560,14 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'room.min_width.oil_waste_storage' },
           });
         } else {
-          const wasteWidth = roundMillimeter(wasteWidthParam.value);
-          const wasteLength = roundMillimeter(wasteLengthParam.value);
-          const wasteObj: LayoutObject = {
-            id: 'oil-waste-storage',
-            type: 'custom',
-            layer: '06-EQUIPMENT',
-            geometry: {
-              x: operationalX,
-              y: wallThickness,
-              width: wasteWidth,
-              length: wasteLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'OIL_WASTE_STORAGE',
-              spaceCategory: 'SERVICE_OPERATIONAL',
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(wasteObj, accessor);
-          placedObjects.push(wasteObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('oilWasteStorage');
-          operationalX = roundMillimeter(operationalX + wasteWidth + 1.0);
+          tryPlaceAncillaryRoom(
+            'oil-waste-storage',
+            roundMillimeter(wasteWidthParam.value),
+            roundMillimeter(wasteLengthParam.value),
+            '06-EQUIPMENT',
+            { zoneType: 'OIL_WASTE_STORAGE', spaceCategory: 'SERVICE_OPERATIONAL' },
+            'oilWasteStorage'
+          );
         }
       }
 
@@ -507,36 +584,18 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'room.min_width.compressor_room' },
           });
         } else {
-          const compWidth = roundMillimeter(compWidthParam.value);
-          const compLength = roundMillimeter(compLengthParam.value);
-          const compObj: LayoutObject = {
-            id: 'compressor-room',
-            type: 'custom',
-            layer: '06-EQUIPMENT',
-            geometry: {
-              x: operationalX,
-              y: wallThickness,
-              width: compWidth,
-              length: compLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'COMPRESSOR_ROOM',
-              spaceCategory: 'SERVICE_OPERATIONAL',
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(compObj, accessor);
-          placedObjects.push(compObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('compressorRoom');
-          operationalX = roundMillimeter(operationalX + compWidth + 1.0);
+          tryPlaceAncillaryRoom(
+            'compressor-room',
+            roundMillimeter(compWidthParam.value),
+            roundMillimeter(compLengthParam.value),
+            '06-EQUIPMENT',
+            { zoneType: 'COMPRESSOR_ROOM', spaceCategory: 'SERVICE_OPERATIONAL' },
+            'compressorRoom'
+          );
         }
       }
 
-      let cleanZoneX = roundMillimeter(operationalX + 1.0);
-
-      // Clean Customer Spaces (Front Central/Right Zone)
+      // Clean Customer Spaces
       if (anc.customerLounge) {
         const custWidth = accessor.getParameter('customer_zone.min_width')?.value;
         const custLength = accessor.getParameter('customer_zone.min_length')?.value;
@@ -550,29 +609,14 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'customer_zone.min_width' },
           });
         } else {
-          const loungeObj: LayoutObject = {
-            id: 'customer-lounge',
-            type: 'custom',
-            layer: '07-FURNITURE',
-            geometry: {
-              x: cleanZoneX,
-              y: wallThickness,
-              width: custWidth,
-              length: custLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'CUSTOMER_LOUNGE',
-              spaceCategory: 'CUSTOMER_CLEAN',
-              loungeWithBayView: anc.loungeWithBayView,
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(loungeObj, accessor);
-          placedObjects.push(loungeObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('customerLounge');
-          cleanZoneX = roundMillimeter(cleanZoneX + custWidth + 1.0);
+          tryPlaceAncillaryRoom(
+            'customer-lounge',
+            roundMillimeter(custWidth),
+            roundMillimeter(custLength),
+            '07-FURNITURE',
+            { zoneType: 'CUSTOMER_LOUNGE', spaceCategory: 'CUSTOMER_CLEAN', loungeWithBayView: anc.loungeWithBayView },
+            'customerLounge'
+          );
         }
       }
 
@@ -589,30 +633,14 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'room.min_width.cashier_office' },
           });
         } else {
-          const cashierWidth = roundMillimeter(cashierWidthParam.value);
-          const cashierLength = roundMillimeter(cashierLengthParam.value);
-          const cashierObj: LayoutObject = {
-            id: 'cashier-office',
-            type: 'custom',
-            layer: '07-FURNITURE',
-            geometry: {
-              x: cleanZoneX,
-              y: wallThickness,
-              width: cashierWidth,
-              length: cashierLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'CASHIER_OFFICE',
-              spaceCategory: 'CUSTOMER_CLEAN',
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(cashierObj, accessor);
-          placedObjects.push(cashierObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('cashierOffice');
-          cleanZoneX = roundMillimeter(cleanZoneX + cashierWidth + 1.0);
+          tryPlaceAncillaryRoom(
+            'cashier-office',
+            roundMillimeter(cashierWidthParam.value),
+            roundMillimeter(cashierLengthParam.value),
+            '07-FURNITURE',
+            { zoneType: 'CASHIER_OFFICE', spaceCategory: 'CUSTOMER_CLEAN' },
+            'cashierOffice'
+          );
         }
       }
 
@@ -629,30 +657,14 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'room.min_width.restroom' },
           });
         } else {
-          const restroomWidth = roundMillimeter(restroomWidthParam.value);
-          const restroomLength = roundMillimeter(restroomLengthParam.value);
-          const restroomObj: LayoutObject = {
-            id: 'restroom',
-            type: 'custom',
-            layer: '07-FURNITURE',
-            geometry: {
-              x: cleanZoneX,
-              y: wallThickness,
-              width: restroomWidth,
-              length: restroomLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'RESTROOM',
-              spaceCategory: 'CUSTOMER_CLEAN',
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(restroomObj, accessor);
-          placedObjects.push(restroomObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('restroom');
-          cleanZoneX = roundMillimeter(cleanZoneX + restroomWidth + 1.0);
+          tryPlaceAncillaryRoom(
+            'restroom',
+            roundMillimeter(restroomWidthParam.value),
+            roundMillimeter(restroomLengthParam.value),
+            '07-FURNITURE',
+            { zoneType: 'RESTROOM', spaceCategory: 'CUSTOMER_CLEAN' },
+            'restroom'
+          );
         }
       }
 
@@ -669,29 +681,14 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'room.min_width.staff_room' },
           });
         } else {
-          const staffWidth = roundMillimeter(staffWidthParam.value);
-          const staffLength = roundMillimeter(staffLengthParam.value);
-          const staffObj: LayoutObject = {
-            id: 'staff-room',
-            type: 'custom',
-            layer: '07-FURNITURE',
-            geometry: {
-              x: cleanZoneX,
-              y: wallThickness,
-              width: staffWidth,
-              length: staffLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'STAFF_ROOM',
-              spaceCategory: 'CUSTOMER_CLEAN',
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(staffObj, accessor);
-          placedObjects.push(staffObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('staffRoom');
+          tryPlaceAncillaryRoom(
+            'staff-room',
+            roundMillimeter(staffWidthParam.value),
+            roundMillimeter(staffLengthParam.value),
+            '07-FURNITURE',
+            { zoneType: 'STAFF_ROOM', spaceCategory: 'CUSTOMER_CLEAN' },
+            'staffRoom'
+          );
         }
       }
 
@@ -708,29 +705,14 @@ export class CandidateGenerator {
             provenance: { source: 'standard', referenceKey: 'room.min_width.parts_warehouse' },
           });
         } else {
-          const warehouseWidth = roundMillimeter(warehouseWidthParam.value);
-          const warehouseLength = roundMillimeter(warehouseLengthParam.value);
-          const warehouseObj: LayoutObject = {
-            id: 'parts-warehouse',
-            type: 'custom',
-            layer: '07-FURNITURE',
-            geometry: {
-              x: roundMillimeter(maxX - warehouseWidth),
-              y: wallThickness,
-              width: warehouseWidth,
-              length: warehouseLength,
-              rotation: 0,
-            },
-            metadata: {
-              zoneType: 'PARTS_WAREHOUSE',
-              spaceCategory: 'SERVICE_OPERATIONAL',
-            },
-          };
-
-          const physEnv = createPhysicalEnvelope(warehouseObj, accessor);
-          placedObjects.push(warehouseObj);
-          generatedEnvelopes.push(physEnv);
-          ancillarySpacesPlaced.push('partsWarehouse');
+          tryPlaceAncillaryRoom(
+            'parts-warehouse',
+            roundMillimeter(warehouseWidthParam.value),
+            roundMillimeter(warehouseLengthParam.value),
+            '07-FURNITURE',
+            { zoneType: 'PARTS_WAREHOUSE', spaceCategory: 'SERVICE_OPERATIONAL' },
+            'partsWarehouse'
+          );
         }
       }
     }

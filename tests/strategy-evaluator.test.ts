@@ -7,16 +7,15 @@ import { StrategyCandidate } from '@/domain/engine/strategies/strategyTypes';
 import { StandardAccessor, MissingStandardParameterError } from '@/domain/engine/StandardAccessor';
 import type { WorkshopStandard } from '@/domain/models/standard';
 
-describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
+describe('FASE 4.2D-A — Strategy Evaluator Semantic Correction', () => {
   const completeStandard: WorkshopStandard = {
-    id: 'mobeng-std-evaluator-4-2d',
+    id: 'mobeng-std-evaluator-4-2d-a',
     name: 'Mobeng Strategy Evaluator Standard Test',
     version: '1.0-eval-test',
     status: 'published',
     scoring: [
-      { key: 'flow_continuity', weight: 40 },
-      { key: 'maneuvers', weight: 30 },
-      { key: 'rejections_count', weight: 10 },
+      { key: 'capacity_throughput', weight: 60 },
+      { key: 'equipment_support', weight: 40 },
     ],
     parameters: [
       // Standard geometry parameters
@@ -25,35 +24,15 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
       { key: 'bay.min_length', value: 7.0, unit: 'meter', constraint_level: 'HARD' },
       { key: 'circulation.drive_aisle.min_width', value: 6.0, unit: 'meter', constraint_level: 'HARD' },
 
-      // Scoring Metric 1: flow_continuity (HIGHER_IS_BETTER: 0.0 worst, 1.0 target)
-      { key: 'scoring.flow_continuity.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.flow_continuity.benchmark_min', value: 0.0, unit: 'score', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.flow_continuity.benchmark_target', value: 1.0, unit: 'score', constraint_level: 'OPTIMIZATION' },
-
-      // Scoring Metric 2: maneuvers (LOWER_IS_BETTER: 2.0 worst, 0.0 target)
-      { key: 'scoring.maneuvers.direction', value: -1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.maneuvers.benchmark_min', value: 2.0, unit: 'maneuvers', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.maneuvers.benchmark_target', value: 0.0, unit: 'maneuvers', constraint_level: 'OPTIMIZATION' },
-
-      // Scoring Metric 3: capacity_throughput (HIGHER_IS_BETTER: 20 m2/bay worst, 50 m2/bay target)
+      // Scoring Metric 1: capacity_throughput (HIGHER_IS_BETTER: 20 m2/bay worst, 100 m2/bay target)
       { key: 'scoring.capacity_throughput.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
       { key: 'scoring.capacity_throughput.benchmark_min', value: 20.0, unit: 'm2/bay', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.capacity_throughput.benchmark_target', value: 50.0, unit: 'm2/bay', constraint_level: 'OPTIMIZATION' },
+      { key: 'scoring.capacity_throughput.benchmark_target', value: 100.0, unit: 'm2/bay', constraint_level: 'OPTIMIZATION' },
 
-      // Scoring Metric 4: equipment_count (HIGHER_IS_BETTER: 0 worst, 3 target)
-      { key: 'scoring.equipment_count.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.equipment_count.benchmark_min', value: 0.0, unit: 'units', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.equipment_count.benchmark_target', value: 3.0, unit: 'units', constraint_level: 'OPTIMIZATION' },
-
-      // Scoring Metric 5: equipment_support (HIGHER_IS_BETTER: 0 worst, 1.0 target)
+      // Scoring Metric 2: equipment_support (HIGHER_IS_BETTER: 0 worst, 1.0 target)
       { key: 'scoring.equipment_support.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
       { key: 'scoring.equipment_support.benchmark_min', value: 0.0, unit: 'ratio', constraint_level: 'OPTIMIZATION' },
       { key: 'scoring.equipment_support.benchmark_target', value: 1.0, unit: 'ratio', constraint_level: 'OPTIMIZATION' },
-
-      // Scoring Metric 6: rejections_count (LOWER_IS_BETTER: 4 worst, 0 target)
-      { key: 'scoring.rejections_count.direction', value: -1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.rejections_count.benchmark_min', value: 4.0, unit: 'count', constraint_level: 'OPTIMIZATION' },
-      { key: 'scoring.rejections_count.benchmark_target', value: 0.0, unit: 'count', constraint_level: 'OPTIMIZATION' },
     ],
     rules: [
       { id: 'COLLISION-001', name: 'Physical Collision', severity: 'HARD', active: true },
@@ -124,7 +103,7 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
   };
 
   describe('1. Valid Candidate Evaluation & Weighted Score', () => {
-    it('evaluates valid candidate across flow_continuity, maneuvers, and rejections_count', () => {
+    it('evaluates valid candidate across capacity_throughput and equipment_support', () => {
       const accessor = new StandardAccessor(completeStandard);
       const evaluator = new ConcreteStrategyEvaluator();
 
@@ -134,54 +113,59 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
       expect(result.strategyId).toBe('CAPACITY');
       expect(result.isEligible).toBe(true);
       expect(result.hardViolations).toHaveLength(0);
-      expect(result.criteria).toHaveLength(3);
+      expect(result.criteria).toHaveLength(2);
 
-      // Criterion 1: flow_continuity (drive_through -> 1.0 -> 100/100)
-      const flowCrit = result.criteria.find((c) => c.criterionId === 'flow_continuity');
-      expect(flowCrit).toBeDefined();
-      expect(flowCrit?.rawValue).toBe(1.0);
-      expect(flowCrit?.normalizedScore).toBe(100);
-      expect(flowCrit?.weight).toBe(40);
-      expect(flowCrit?.weightedScore).toBe(40.0);
+      // Criterion 1: capacity_throughput
+      // usableServiceArea = 477.75 - 120 = 357.75; 3 bays -> 119.25 m2/bay -> >= 100 target -> 100/100
+      const tpCrit = result.criteria.find((c) => c.criterionId === 'capacity_throughput');
+      expect(tpCrit).toBeDefined();
+      expect(tpCrit?.rawValue).toBe(119.25);
+      expect(tpCrit?.normalizedScore).toBe(100);
+      expect(tpCrit?.weight).toBe(60);
+      expect(tpCrit?.weightedScore).toBe(60.0);
 
-      // Criterion 2: maneuvers (DOUBLE_COMB + drive_through -> 0.0 maneuvers -> 100/100)
-      const manCrit = result.criteria.find((c) => c.criterionId === 'maneuvers');
-      expect(manCrit).toBeDefined();
-      expect(manCrit?.rawValue).toBe(0.0);
-      expect(manCrit?.normalizedScore).toBe(100);
-      expect(manCrit?.weight).toBe(30);
-      expect(manCrit?.weightedScore).toBe(30.0);
+      // Criterion 2: equipment_support
+      // 2 supported of 3 bays = 0.667 -> 67/100
+      const suppCrit = result.criteria.find((c) => c.criterionId === 'equipment_support');
+      expect(suppCrit).toBeDefined();
+      expect(suppCrit?.rawValue).toBe(0.667);
+      expect(suppCrit?.normalizedScore).toBe(67);
+      expect(suppCrit?.weight).toBe(40);
+      expect(suppCrit?.weightedScore).toBe(26.8);
 
-      // Criterion 3: rejections_count (0 warnings -> 100/100)
-      const rejCrit = result.criteria.find((c) => c.criterionId === 'rejections_count');
-      expect(rejCrit).toBeDefined();
-      expect(rejCrit?.rawValue).toBe(0);
-      expect(rejCrit?.normalizedScore).toBe(100);
-      expect(rejCrit?.weight).toBe(10);
-      expect(rejCrit?.weightedScore).toBe(10.0);
-
-      // Total Score: (40 + 30 + 10) / (40 + 30 + 10) * 100 = 100
-      expect(result.totalScore).toBe(100);
-      expect(result.summary.finalScore).toBe(100);
+      // Total Score: (60.0 + 26.8) / 100 * 100 = 87
+      expect(result.totalScore).toBe(87);
+      expect(result.summary.finalScore).toBe(87);
     });
   });
 
-  describe('2. Differentiating Candidates with Same Bay Count (Flow & Maneuver Geometry)', () => {
-    it('produces DIFFERENT scores for two candidates with 3 bays but different flow arrangements', () => {
+  describe('2. Differentiating Candidates with Same Bay Count', () => {
+    it('produces DIFFERENT scores for two candidates with 3 bays but different usable floor areas', () => {
       const accessor = new StandardAccessor(completeStandard);
       const evaluator = new ConcreteStrategyEvaluator();
 
-      // Candidate A: DOUBLE_COMB_OPPOSING + drive_through (Fluid continuous flow)
-      const candidateA = sampleCandidate;
+      const candidateA = sampleCandidate; // interiorArea = 477.75, aisle = 120 -> 119.25 m2/bay
 
-      // Candidate B: SINGLE_COMB_NORTH + back_out_turnaround (Reverse egress required)
+      // Candidate B: smaller building -> interiorArea = 250, aisle = 120 -> usable = 130 -> 43.33 m2/bay
       const candidateB: StrategyCandidate = {
         ...sampleCandidate,
-        id: 'candidate-single-comb-02',
+        id: 'candidate-smaller-building-02',
         spatialContext: {
           ...sampleCandidate.spatialContext,
-          arrangement: 'SINGLE_COMB_NORTH',
-          circulationRequirement: 'back_out_turnaround',
+          buildingInterior: {
+            grossWidth: 15,
+            grossLength: 18,
+            grossArea: 270,
+            wallThickness: 0.25,
+            interiorWidth: 14.5,
+            interiorLength: 17.5,
+            interiorArea: 253.75,
+            provenance: {
+              source: 'building_envelope',
+              wallThicknessParameterKey: 'building.wall_thickness',
+              formula: '(grossWidth - 2*wallThickness) * (grossLength - 2*wallThickness)',
+            },
+          },
         },
       };
 
@@ -192,68 +176,44 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
       expect(candidateA.layout.objects.filter((o) => o.type === 'service_bay').length).toBe(3);
       expect(candidateB.layout.objects.filter((o) => o.type === 'service_bay').length).toBe(3);
 
-      // Candidate A (drive_through) scores 100 on flow, 100 on maneuvers
-      // Candidate B (back_out) scores 25 on flow (0.25), 50 on maneuvers (1.0 maneuver in [2.0, 0.0])
-      expect(resultA.totalScore).toBe(100);
-      expect(resultB.totalScore).toBeLessThan(resultA.totalScore);
+      expect(resultA.totalScore).toBeGreaterThan(resultB.totalScore);
 
-      const flowB = resultB.criteria.find((c) => c.criterionId === 'flow_continuity')!;
-      const manB = resultB.criteria.find((c) => c.criterionId === 'maneuvers')!;
-      expect(flowB.rawValue).toBe(0.25);
-      expect(manB.rawValue).toBe(1.0);
+      const tpA = resultA.criteria.find((c) => c.criterionId === 'capacity_throughput')!;
+      const tpB = resultB.criteria.find((c) => c.criterionId === 'capacity_throughput')!;
+      expect(tpA.rawValue).toBeGreaterThan(tpB.rawValue);
     });
 
-    it('disconnected flow candidate receives 0 flow continuity and maximum maneuver penalty', () => {
+    it('produces DIFFERENT scores for two candidates with 3 bays but different equipment support', () => {
       const accessor = new StandardAccessor(completeStandard);
       const evaluator = new ConcreteStrategyEvaluator();
 
-      const disconnectedCandidate: StrategyCandidate = {
+      const candidateA = sampleCandidate; // 2 of 3 bays supported
+
+      // Candidate B: all 3 bays supported
+      const candidateB: StrategyCandidate = {
         ...sampleCandidate,
-        status: 'DISQUALIFIED',
-        rejections: [
-          {
-            ruleId: 'FLOW-DOOR-001',
-            severity: 'HARD',
-            isDisqualifying: true,
-            reason: 'Missing access doors: flow cannot connect.',
-          },
-        ],
+        id: 'candidate-fully-supported-03',
+        layout: {
+          objects: [
+            ...sampleCandidate.layout.objects,
+            { id: 'eq-03', type: 'equipment', layer: '07-EQUIPMENT', geometry: { x: 10, y: 15, width: 2, length: 2, rotation: 0 }, metadata: { associatedBayId: 'bay-03', serviceType: 'brake_suspension' } },
+          ],
+        },
       };
 
-      const result = evaluator.evaluate(disconnectedCandidate, accessor);
-      const flowCrit = result.criteria.find((c) => c.criterionId === 'flow_continuity')!;
-      const manCrit = result.criteria.find((c) => c.criterionId === 'maneuvers')!;
+      const resultA = evaluator.evaluate(candidateA, accessor);
+      const resultB = evaluator.evaluate(candidateB, accessor);
 
-      expect(flowCrit.rawValue).toBe(0.0);
-      expect(flowCrit.normalizedScore).toBe(0);
-      expect(manCrit.rawValue).toBe(3.0); // Maximum maneuver penalty
-      expect(manCrit.normalizedScore).toBe(0);
-      expect(result.isEligible).toBe(false);
+      expect(resultB.totalScore).toBeGreaterThan(resultA.totalScore);
+
+      const suppA = resultA.criteria.find((c) => c.criterionId === 'equipment_support')!;
+      const suppB = resultB.criteria.find((c) => c.criterionId === 'equipment_support')!;
+      expect(suppB.rawValue).toBe(1.0);
+      expect(suppA.rawValue).toBe(0.667);
     });
   });
 
-  describe('3. Capacity Throughput Metric', () => {
-    it('evaluates capacity_throughput based on usable interior floor area per bay', () => {
-      const throughputStandard: WorkshopStandard = {
-        ...completeStandard,
-        scoring: [{ key: 'capacity_throughput', weight: 100 }],
-      };
-
-      const accessor = new StandardAccessor(throughputStandard);
-      const evaluator = new ConcreteStrategyEvaluator();
-
-      const result = evaluator.evaluate(sampleCandidate, accessor);
-      const tpCrit = result.criteria.find((c) => c.criterionId === 'capacity_throughput')!;
-
-      // interiorArea = 477.75, aisleArea = 20 * 6 = 120, ancillaryArea = 0
-      // usableServiceArea = 477.75 - 120 = 357.75
-      // 3 bays -> 357.75 / 3 = 119.25 m2/bay
-      // benchmark_min = 20, benchmark_target = 50 -> 119.25 >= 50 -> 100/100
-      expect(tpCrit).toBeDefined();
-      expect(tpCrit.rawValue).toBe(119.25);
-      expect(tpCrit.normalizedScore).toBe(100);
-    });
-
+  describe('3. Capacity Throughput Missing Parameter Enforcement', () => {
     it('throws MissingStandardParameterError if capacity_throughput benchmark is absent from standard', () => {
       const missingTpStandard: WorkshopStandard = {
         ...completeStandard,
@@ -273,42 +233,7 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
     });
   });
 
-  describe('4. Equipment Count & Equipment Support Metrics', () => {
-    it('evaluates equipment_count from actual placed equipment units', () => {
-      const equipStandard: WorkshopStandard = {
-        ...completeStandard,
-        scoring: [{ key: 'equipment_count', weight: 100 }],
-      };
-
-      const accessor = new StandardAccessor(equipStandard);
-      const evaluator = new ConcreteStrategyEvaluator();
-
-      const result = evaluator.evaluate(sampleCandidate, accessor);
-      const eqCrit = result.criteria.find((c) => c.criterionId === 'equipment_count')!;
-
-      // 2 equipment units placed with benchmark_target = 3.0 -> 2/3 = 67/100
-      expect(eqCrit.rawValue).toBe(2);
-      expect(eqCrit.normalizedScore).toBe(67);
-    });
-
-    it('evaluates equipment_support based on explicit bay association', () => {
-      const equipSupportStandard: WorkshopStandard = {
-        ...completeStandard,
-        scoring: [{ key: 'equipment_support', weight: 100 }],
-      };
-
-      const accessor = new StandardAccessor(equipSupportStandard);
-      const evaluator = new ConcreteStrategyEvaluator();
-
-      const result = evaluator.evaluate(sampleCandidate, accessor);
-      const suppCrit = result.criteria.find((c) => c.criterionId === 'equipment_support')!;
-
-      // bay-01 has eq-01, bay-02 has eq-02, bay-03 has no eq -> 2 of 3 bays supported = 0.667
-      // in [0, 1.0] -> 67/100
-      expect(suppCrit.rawValue).toBe(0.667);
-      expect(suppCrit.normalizedScore).toBe(67);
-    });
-
+  describe('4. Equipment Support & Unassociated Equipment Handling', () => {
     it('throws UnsupportedScoringCriterionError if equipment objects lack explicit association (SCORING_GAP)', () => {
       const unassociatedCandidate: StrategyCandidate = {
         ...sampleCandidate,
@@ -335,7 +260,93 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
     });
   });
 
-  describe('5. Unsupported Criteria Rejection (Gaps, Deprecations & Hard Constraints)', () => {
+  describe('5. Diagnostic Metrics Extraction', () => {
+    it('extracts diagnostic metrics (equipmentCount, softRejectionsCount) accurately', () => {
+      const evaluator = new ConcreteStrategyEvaluator();
+      const diag = evaluator.extractDiagnosticMetrics(sampleCandidate);
+
+      expect(diag.equipmentCount).toBe(2);
+      expect(diag.softRejectionsCount).toBe(0);
+    });
+
+    it('throws UnsupportedScoringCriterionError if equipment_count is placed in scoring criteria (DIAGNOSTIC only)', () => {
+      const std: WorkshopStandard = {
+        ...completeStandard,
+        scoring: [{ key: 'equipment_count', weight: 100 }],
+        parameters: [
+          ...completeStandard.parameters,
+          { key: 'scoring.equipment_count.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.equipment_count.benchmark_min', value: 0, unit: 'units', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.equipment_count.benchmark_target', value: 3, unit: 'units', constraint_level: 'OPTIMIZATION' },
+        ],
+      };
+
+      const accessor = new StandardAccessor(std);
+      const evaluator = new ConcreteStrategyEvaluator();
+
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(UnsupportedScoringCriterionError);
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(/DIAGNOSTIC/);
+    });
+
+    it('throws UnsupportedScoringCriterionError if rejections_count is placed in scoring criteria (DIAGNOSTIC only)', () => {
+      const std: WorkshopStandard = {
+        ...completeStandard,
+        scoring: [{ key: 'rejections_count', weight: 100 }],
+        parameters: [
+          ...completeStandard.parameters,
+          { key: 'scoring.rejections_count.direction', value: -1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.rejections_count.benchmark_min', value: 5, unit: 'count', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.rejections_count.benchmark_target', value: 0, unit: 'count', constraint_level: 'OPTIMIZATION' },
+        ],
+      };
+
+      const accessor = new StandardAccessor(std);
+      const evaluator = new ConcreteStrategyEvaluator();
+
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(UnsupportedScoringCriterionError);
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(/DIAGNOSTIC/);
+    });
+  });
+
+  describe('6. Heuristic & Gap Rejections (flow_continuity, maneuvers, bottlenecks, aisle_congestion)', () => {
+    it('throws UnsupportedScoringCriterionError for flow_continuity (SCORING_GAP: requires CAD path topology)', () => {
+      const std: WorkshopStandard = {
+        ...completeStandard,
+        scoring: [{ key: 'flow_continuity', weight: 100 }],
+        parameters: [
+          ...completeStandard.parameters,
+          { key: 'scoring.flow_continuity.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.flow_continuity.benchmark_min', value: 0, unit: 'score', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.flow_continuity.benchmark_target', value: 1, unit: 'score', constraint_level: 'OPTIMIZATION' },
+        ],
+      };
+
+      const accessor = new StandardAccessor(std);
+      const evaluator = new ConcreteStrategyEvaluator();
+
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(UnsupportedScoringCriterionError);
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(/SCORING_GAP/);
+    });
+
+    it('throws UnsupportedScoringCriterionError for maneuvers (SCORING_GAP: requires swept path turning geometry)', () => {
+      const std: WorkshopStandard = {
+        ...completeStandard,
+        scoring: [{ key: 'maneuvers', weight: 100 }],
+        parameters: [
+          ...completeStandard.parameters,
+          { key: 'scoring.maneuvers.direction', value: -1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.maneuvers.benchmark_min', value: 2, unit: 'count', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.maneuvers.benchmark_target', value: 0, unit: 'count', constraint_level: 'OPTIMIZATION' },
+        ],
+      };
+
+      const accessor = new StandardAccessor(std);
+      const evaluator = new ConcreteStrategyEvaluator();
+
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(UnsupportedScoringCriterionError);
+      expect(() => evaluator.evaluate(sampleCandidate, accessor)).toThrow(/SCORING_GAP/);
+    });
+
     it('throws UnsupportedScoringCriterionError for capacity (HARD constraint)', () => {
       const std: WorkshopStandard = {
         ...completeStandard,
@@ -398,7 +409,7 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
     });
   });
 
-  describe('6. Determinism, Immutability, Provenance & Explanations', () => {
+  describe('7. Determinism, Immutability, Provenance & Explanations', () => {
     it('produces 100% deterministic evaluation results across repeated runs', () => {
       const accessor = new StandardAccessor(completeStandard);
       const evaluator = new ConcreteStrategyEvaluator();
@@ -438,3 +449,4 @@ describe('FASE 4.2D — Concrete Strategy Evaluator', () => {
     });
   });
 });
+
