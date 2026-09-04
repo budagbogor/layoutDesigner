@@ -38,10 +38,17 @@ export type SpatialArrangementType =
   | 'DOUBLE_COMB_OPPOSING'
   | 'ZONED_BY_SERVICE';
 
+export const ALL_SPATIAL_ARRANGEMENTS: readonly SpatialArrangementType[] = Object.freeze([
+  'SINGLE_COMB_NORTH',
+  'DOUBLE_COMB_OPPOSING',
+  'ZONED_BY_SERVICE',
+]);
+
 export interface CandidateGeneratorOptions {
   readonly strategyId?: LayoutStrategyId;
   readonly preferredArrangement?: SpatialArrangementType;
   readonly enableMultiArrangementSearch?: boolean;
+  readonly sequenceIndex?: number;
 }
 
 export interface GeneratedCandidateLayout {
@@ -110,7 +117,8 @@ export class CandidateGenerator {
         accessor,
         strategyId,
         arrangement,
-        candidateArrangements
+        candidateArrangements,
+        options?.sequenceIndex ?? 1
       );
 
       if (candidate.status === 'VALID' || candidate.status === 'FEASIBLE_WITH_WARNINGS') {
@@ -126,6 +134,28 @@ export class CandidateGenerator {
   }
 
   /**
+   * Generates a deterministic candidate layout for a specific strategy and arrangement.
+   * Useful for orchestration layers systematically exploring all permutations.
+   */
+  public generateArrangement(
+    input: LayoutEngineInput,
+    accessor: StandardAccessor,
+    strategyId: LayoutStrategyId,
+    arrangement: SpatialArrangementType,
+    attemptedArrangements: readonly SpatialArrangementType[] = ALL_SPATIAL_ARRANGEMENTS,
+    sequenceIndex: number = 1
+  ): GeneratedCandidateLayout {
+    return this.generateWithArrangement(
+      input,
+      accessor,
+      strategyId,
+      arrangement,
+      attemptedArrangements,
+      sequenceIndex
+    );
+  }
+
+  /**
    * Internal pure generator for a specific spatial arrangement.
    */
   private generateWithArrangement(
@@ -133,9 +163,10 @@ export class CandidateGenerator {
     accessor: StandardAccessor,
     strategyId: LayoutStrategyId,
     arrangement: SpatialArrangementType,
-    attemptedArrangements: readonly SpatialArrangementType[]
+    attemptedArrangements: readonly SpatialArrangementType[],
+    sequenceIndex: number = 1
   ): GeneratedCandidateLayout {
-    const candidateId = generateDeterministicCandidateId(strategyId, 1);
+    const candidateId = generateDeterministicCandidateId(strategyId, sequenceIndex);
     const standardVersionId = accessor.getStandardVersion();
     const generatedAt = '2026-09-02T00:00:00.000Z'; // Deterministic timestamp
 
@@ -253,7 +284,7 @@ export class CandidateGenerator {
     // -----------------------------------------------------------------------
     let currentNorthX = minX;
     let currentSouthX = minX;
-    let sequenceIndex = 1;
+    let baySequenceIndex = 1;
     const operationalBaysByService: Record<string, number> = {};
 
     // Flatten all requested bay items
@@ -273,7 +304,7 @@ export class CandidateGenerator {
     }
 
     for (const bayItem of flattenedBays) {
-      const bayId = `bay-${String(sequenceIndex).padStart(2, '0')}`;
+      const bayId = `bay-${String(baySequenceIndex).padStart(2, '0')}`;
       let placedInRow: 'north' | 'south' | null = null;
       let targetX = 0;
       let targetY = 0;
@@ -323,7 +354,7 @@ export class CandidateGenerator {
           requiredEquipment: bayItem.requiredEquipment,
           row: placedInRow,
           accessDirection: placedInRow === 'south' ? 'rear' : 'front',
-          sequence: sequenceIndex,
+          sequence: baySequenceIndex,
         },
       };
 
@@ -348,7 +379,7 @@ export class CandidateGenerator {
         } else {
           currentSouthX = roundMillimeter(currentSouthX + bayWidth + 2 * workBuffer);
         }
-        sequenceIndex++;
+        baySequenceIndex++;
       } catch (err) {
         internalRejections.push({
           ruleId: 'ENVELOPE-CREATION-001',

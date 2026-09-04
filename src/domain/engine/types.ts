@@ -213,13 +213,3 @@ export interface LayoutCandidate {
   scoreBreakdown: ScoreBreakdown;
   totalScore: number; // 0..100 (0 if DISQUALIFIED)
 }
-
-export interface LayoutEngineResult {
-  engineVersion: string;
-  standardVersionId: string;
-  timestamp: string;
-  feasibility: FeasibilityReport;
-  candidates: LayoutCandidate[];
-  recommendedCandidateId: string | null;
-  explainability: EngineExplainability;
-}

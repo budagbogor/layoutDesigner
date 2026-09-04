@@ -20,3 +20,5 @@ export * from './evaluation/evaluationTypes';
 export * from './evaluation/strategyEvaluator';
 export * from './generator/candidateValidator';
 export * from './generator/candidateGenerator';
+export * from './orchestrator/orchestratorTypes';
+export * from './orchestrator/layoutOrchestrator';
