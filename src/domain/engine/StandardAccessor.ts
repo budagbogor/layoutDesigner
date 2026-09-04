@@ -109,11 +109,11 @@ export class StandardAccessor {
           ? 'LOWER_IS_BETTER'
           : 'HIGHER_IS_BETTER';
 
-      const minParam = this.parameterMap.get(`scoring.${s.key}.benchmark_min`);
-      const targetParam = this.parameterMap.get(`scoring.${s.key}.benchmark_target`);
-
-      const benchmarkMin = minParam ? minParam.value : 0;
-      const benchmarkTarget = targetParam ? targetParam.value : 100;
+      // FASE 4.2B FIX: No fallback benchmarks.
+      // If benchmark_min or benchmark_target are missing from the standard snapshot,
+      // throw MissingStandardParameterError. The engine must never invent benchmarks.
+      const benchmarkMin = this.getRequiredNumericValue(`scoring.${s.key}.benchmark_min`);
+      const benchmarkTarget = this.getRequiredNumericValue(`scoring.${s.key}.benchmark_target`);
 
       return {
         criterionKey: s.key,

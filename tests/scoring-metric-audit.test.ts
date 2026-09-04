@@ -415,35 +415,71 @@ describe('FASE 4.2A — Scoring Metric Regression Tests', () => {
   // -------------------------------------------------------------------------
   // GROUP 6: getScoringCriteria() fallback documentation
   // -------------------------------------------------------------------------
-  describe('Group 6: StandardAccessor.getScoringCriteria() Fallback Behavior (DOCUMENTED BUG)', () => {
+  describe('Group 6: StandardAccessor.getScoringCriteria() No-Fallback Contract (FASE 4.2B Fix)', () => {
 
-    it('[AUDIT-015] SCORING_GAP: getScoringCriteria() uses fallback 0/100 when benchmark params missing from standard', () => {
-      // Standard has scoring key but NO benchmark_min / benchmark_target params
+    it('[AUDIT-015] FIXED: getScoringCriteria() throws MissingStandardParameterError when benchmark_min is missing', () => {
+      // Standard has scoring key but NO benchmark_min param
       const partialStandard: WorkshopStandard = {
         id: 'std-partial',
         name: 'Partial Standard',
         version: '1.0-partial',
         status: 'published',
         parameters: [
-          // No scoring.capacity.benchmark_min
-          // No scoring.capacity.benchmark_target
-          // No scoring.capacity.direction
+          // Has benchmark_target but NOT benchmark_min
+          { key: 'scoring.capacity.benchmark_target', value: 6, unit: 'bays', constraint_level: 'OPTIMIZATION' },
         ],
         rules: [],
         scoring: [{ key: 'capacity', weight: 100 }],
       };
 
       const accessor = new StandardAccessor(partialStandard);
+
+      // FASE 4.2B: No longer falls back to 0. Must throw.
+      expect(() => accessor.getScoringCriteria()).toThrow();
+    });
+
+    it('[AUDIT-015B] FIXED: getScoringCriteria() throws MissingStandardParameterError when benchmark_target is missing', () => {
+      const partialStandard: WorkshopStandard = {
+        id: 'std-partial-target',
+        name: 'Partial Standard No Target',
+        version: '1.0-no-target',
+        status: 'published',
+        parameters: [
+          // Has benchmark_min but NOT benchmark_target
+          { key: 'scoring.capacity.benchmark_min', value: 0, unit: 'bays', constraint_level: 'OPTIMIZATION' },
+        ],
+        rules: [],
+        scoring: [{ key: 'capacity', weight: 100 }],
+      };
+
+      const accessor = new StandardAccessor(partialStandard);
+
+      // FASE 4.2B: No longer falls back to 100. Must throw.
+      expect(() => accessor.getScoringCriteria()).toThrow();
+    });
+
+    it('[AUDIT-015C] getScoringCriteria() succeeds when all benchmark params are present', () => {
+      const completeStandard: WorkshopStandard = {
+        id: 'std-complete-scoring',
+        name: 'Complete Scoring Standard',
+        version: '1.0-complete',
+        status: 'published',
+        parameters: [
+          { key: 'scoring.capacity.direction', value: 1, unit: 'dir', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.capacity.benchmark_min', value: 0, unit: 'bays', constraint_level: 'OPTIMIZATION' },
+          { key: 'scoring.capacity.benchmark_target', value: 6, unit: 'bays', constraint_level: 'OPTIMIZATION' },
+        ],
+        rules: [],
+        scoring: [{ key: 'capacity', weight: 100 }],
+      };
+
+      const accessor = new StandardAccessor(completeStandard);
       const criteria = accessor.getScoringCriteria();
 
-      // PROOF of fallback behavior:
-      // When benchmark_min param is missing → falls back to 0 (magic number)
-      // When benchmark_target param is missing → falls back to 100 (magic number)
-      expect(criteria[0].benchmarkMin).toBe(0);    // fallback used
-      expect(criteria[0].benchmarkTarget).toBe(100); // fallback used
-      expect(criteria[0].direction).toBe('HIGHER_IS_BETTER'); // default direction
-      // This means any scoring.X criterion with missing params silently uses
-      // [0, 100] HIGHER_IS_BETTER benchmarks — which could produce misleading scores.
+      expect(criteria).toHaveLength(1);
+      expect(criteria[0].benchmarkMin).toBe(0);
+      expect(criteria[0].benchmarkTarget).toBe(6);
+      expect(criteria[0].direction).toBe('HIGHER_IS_BETTER');
     });
   });
 });
