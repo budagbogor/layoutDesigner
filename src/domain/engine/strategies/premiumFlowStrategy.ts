@@ -1,5 +1,5 @@
 import { LayoutObject } from '../../models/project';
-import { ObjectEnvelope, AccessPoint } from '../types';
+import { ObjectEnvelope, AccessPoint, CirculationRequirementType } from '../types';
 import {
   StrategyGenerator,
   StrategyContext,
@@ -9,6 +9,7 @@ import {
   generateDeterministicCandidateId,
   LayoutStrategyId,
 } from './strategyTypes';
+import { SpatialArrangementType } from '../generator/candidateGenerator';
 import { createPhysicalEnvelope } from '../envelopes/physicalEnvelope';
 import { createWorkingEnvelope } from '../envelopes/workingEnvelope';
 import { createAccessEnvelope } from '../envelopes/accessEnvelope';
@@ -31,6 +32,8 @@ export class PremiumFlowStrategyGenerator implements StrategyGenerator {
     const rejections: CandidateRejection[] = [];
     const placedObjects: LayoutObject[] = [];
     const generatedEnvelopes: ObjectEnvelope[] = [];
+
+    const wallThickness = accessor.getRequiredNumericValue('building.wall_thickness');
 
     // -------------------------------------------------------------------------
     // 1. Strict Access Point Verification (ZERO Invented Doors)
@@ -63,6 +66,10 @@ export class PremiumFlowStrategyGenerator implements StrategyGenerator {
           placedBaysCount: 0,
           totalBaysRequested: program.bays.reduce((s, b) => s + b.quantity, 0),
           tradeOffs: 'Disqualified due to absence of input access doors.',
+          circulationRequirement: program.circulationRequirement,
+          buildingWidth: building.width,
+          buildingLength: building.length,
+          wallThickness,
         }),
         success: true,
         errors: [],
@@ -85,7 +92,6 @@ export class PremiumFlowStrategyGenerator implements StrategyGenerator {
     // -------------------------------------------------------------------------
     // 2. Resolve Parameters via StandardAccessor (Strict Zero Fallback)
     // -------------------------------------------------------------------------
-    const wallThickness = accessor.getRequiredNumericValue('building.wall_thickness');
     const bayWidth = accessor.getRequiredNumericValue('bay.min_width');
     const bayLength = accessor.getRequiredNumericValue('bay.min_length');
     const aisleWidth = accessor.getRequiredNumericValue('circulation.drive_aisle.min_width');
@@ -384,6 +390,10 @@ export class PremiumFlowStrategyGenerator implements StrategyGenerator {
       placedBaysCount,
       totalBaysRequested,
       tradeOffs,
+      circulationRequirement: program.circulationRequirement,
+      buildingWidth: building.width,
+      buildingLength: building.length,
+      wallThickness,
     });
 
     return {
@@ -408,6 +418,10 @@ export class PremiumFlowStrategyGenerator implements StrategyGenerator {
     placedBaysCount: number;
     totalBaysRequested: number;
     tradeOffs: string;
+    circulationRequirement: any;
+    buildingWidth: number;
+    buildingLength: number;
+    wallThickness: number;
   }): StrategyCandidate {
     const layoutSummary = `Placed ${params.placedBaysCount} of ${params.totalBaysRequested} service bays along ${params.flowTopologyDescription}. Access point(s) utilized: ${params.accessPointsUsed}.`;
 
@@ -433,6 +447,31 @@ export class PremiumFlowStrategyGenerator implements StrategyGenerator {
         strategyRationale: `Vehicle access anchored to actual access points [${params.accessPointsUsed}]. Structured as ${params.flowTopologyDescription}.`,
         layoutSummary,
         tradeOffs: params.tradeOffs,
+      },
+      spatialContext: {
+        arrangement: 'SINGLE_COMB_NORTH' as SpatialArrangementType,
+        circulationRequirement: params.circulationRequirement ?? 'drive_through',
+        buildingInterior: {
+          grossWidth: params.buildingWidth,
+          grossLength: params.buildingLength,
+          grossArea: roundMillimeter(params.buildingWidth * params.buildingLength),
+          wallThickness: params.wallThickness,
+          interiorWidth: roundMillimeter(params.buildingWidth - 2 * params.wallThickness),
+          interiorLength: roundMillimeter(params.buildingLength - 2 * params.wallThickness),
+          interiorArea: roundMillimeter(
+            (params.buildingWidth - 2 * params.wallThickness) * (params.buildingLength - 2 * params.wallThickness)
+          ),
+          provenance: {
+            source: 'building_envelope',
+            wallThicknessParameterKey: 'building.wall_thickness',
+            formula: '(grossWidth - 2*wallThickness) * (grossLength - 2*wallThickness)',
+          },
+        },
+        provenance: {
+          source: 'generator' as const,
+          generatorName: this.name,
+          inputProgramField: 'circulationRequirement' as const,
+        },
       },
     });
   }

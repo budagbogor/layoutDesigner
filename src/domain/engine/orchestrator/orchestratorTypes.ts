@@ -166,5 +166,15 @@ export function toStrategyCandidate(candidate: GeneratedCandidateLayout): Strate
       layoutSummary: `${candidate.metadata.totalBaysPlaced}/${candidate.metadata.totalBaysRequested} bays placed with ${candidate.arrangement}.`,
       tradeOffs: `Arrangement ${candidate.arrangement} evaluated against site boundary, central drive aisle, and access clearance.`,
     }),
+    spatialContext: Object.freeze({
+      arrangement: candidate.arrangement,
+      circulationRequirement: candidate.circulationRequirement,
+      buildingInterior: candidate.metadata.buildingInterior,
+      provenance: Object.freeze({
+        source: 'generator' as const,
+        generatorName: candidate.provenance.generatorName,
+        inputProgramField: 'circulationRequirement' as const,
+      }),
+    }),
   });
 }

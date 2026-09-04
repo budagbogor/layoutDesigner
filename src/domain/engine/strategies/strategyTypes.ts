@@ -1,7 +1,8 @@
-import { LayoutEngineInput, ObjectEnvelope } from '../types';
+import { LayoutEngineInput, ObjectEnvelope, CirculationRequirementType } from '../types';
 import { LayoutTopology, TopologyProvenance } from '../topology/topologyTypes';
 import { StandardAccessor } from '../StandardAccessor';
 import { LayoutObject } from '../../models/project';
+import { SpatialArrangementType } from '../generator/candidateGenerator';
 import {
   overlapsEnvelope,
   containsEnvelope,
@@ -111,6 +112,57 @@ export interface CandidateRejection {
 
 export type CandidateStatus = 'VALID' | 'DISQUALIFIED' | 'FEASIBLE_WITH_WARNINGS';
 
+export interface BuildingInteriorGeometry {
+  /** Gross outer width of the building in meters */
+  readonly grossWidth: number;
+  /** Gross outer length of the building in meters */
+  readonly grossLength: number;
+  /** Gross outer footprint area of the building in m² */
+  readonly grossArea: number;
+  /** Wall thickness applied from building.wall_thickness standard parameter */
+  readonly wallThickness: number;
+  /** Usable interior width (grossWidth - 2 * wallThickness) in meters */
+  readonly interiorWidth: number;
+  /** Usable interior length (grossLength - 2 * wallThickness) in meters */
+  readonly interiorLength: number;
+  /** Usable interior floor area (interiorWidth * interiorLength) in m² */
+  readonly interiorArea: number;
+  /** Exact engineering provenance for the computed interior geometry */
+  readonly provenance: {
+    readonly source: string;
+    readonly wallThicknessParameterKey: string;
+    readonly formula: string;
+  };
+}
+
+export interface StrategyCandidateSpatialContext {
+  /**
+   * The physical spatial arrangement used to place service bays.
+   * Needed by: flow_continuity, maneuvers scoring metrics.
+   */
+  readonly arrangement: SpatialArrangementType;
+
+  /**
+   * The circulation requirement from LayoutEngineInput.program.
+   * Needed by: flow_continuity, maneuvers scoring metrics.
+   */
+  readonly circulationRequirement: CirculationRequirementType;
+
+  /**
+   * FASE 4.2C — GAP-003 closure.
+   * Usable building interior geometry calculated deterministically.
+   * Needed by: capacity_throughput scoring metric.
+   */
+  readonly buildingInterior?: BuildingInteriorGeometry;
+
+  /** Provenance: where these values originate */
+  readonly provenance: {
+    readonly source: 'generator';
+    readonly generatorName: string;
+    readonly inputProgramField: 'circulationRequirement';
+  };
+}
+
 export interface StrategyCandidate {
   readonly id: string; // Deterministic candidate ID e.g. "candidate-capacity-01"
   readonly strategyId: LayoutStrategyId;
@@ -133,6 +185,13 @@ export interface StrategyCandidate {
     readonly layoutSummary: string;
     readonly tradeOffs: string;
   };
+
+  /**
+   * FASE 4.2C — GAP-001 closure.
+   * Spatial context data required for flow and maneuver scoring metrics.
+   * Carries arrangement and circulationRequirement from the generator.
+   */
+  readonly spatialContext: StrategyCandidateSpatialContext;
 }
 
 // ---------------------------------------------------------------------------

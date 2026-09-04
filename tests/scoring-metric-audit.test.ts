@@ -104,6 +104,15 @@ function makeCandidate(overrides: {
       layoutSummary: 'Test',
       tradeOffs: 'Test',
     }),
+    spatialContext: Object.freeze({
+      arrangement: 'SINGLE_COMB_NORTH',
+      circulationRequirement: 'back_out_turnaround',
+      provenance: Object.freeze({
+        source: 'generator' as const,
+        generatorName: 'TestGenerator',
+        inputProgramField: 'circulationRequirement' as const,
+      }),
+    }),
   };
 }
 

@@ -252,6 +252,29 @@ export class CapacityStrategyGenerator implements StrategyGenerator {
             ? `Building width (${building.width}m) limits physical capacity to ${placedCount} bays.`
             : 'Capacity prioritized; inter-bay spacing strictly respects minimum working clearance buffers.',
       },
+      spatialContext: {
+        arrangement: 'SINGLE_COMB_NORTH',
+        circulationRequirement: program.circulationRequirement,
+        buildingInterior: {
+          grossWidth: building.width,
+          grossLength: building.length,
+          grossArea: roundMillimeter(building.width * building.length),
+          wallThickness,
+          interiorWidth: roundMillimeter(building.width - 2 * wallThickness),
+          interiorLength: roundMillimeter(building.length - 2 * wallThickness),
+          interiorArea: roundMillimeter((building.width - 2 * wallThickness) * (building.length - 2 * wallThickness)),
+          provenance: {
+            source: 'building_envelope',
+            wallThicknessParameterKey: 'building.wall_thickness',
+            formula: '(grossWidth - 2*wallThickness) * (grossLength - 2*wallThickness)',
+          },
+        },
+        provenance: {
+          source: 'generator' as const,
+          generatorName: this.name,
+          inputProgramField: 'circulationRequirement' as const,
+        },
+      },
     };
 
     return {

@@ -12,7 +12,7 @@
 // - Output is 100% deterministic and deeply immutable.
 // ---------------------------------------------------------------------------
 
-import { LayoutEngineInput, ObjectEnvelope } from '../types';
+import { LayoutEngineInput, ObjectEnvelope, CirculationRequirementType } from '../types';
 import { LayoutObject } from '../../models/project';
 import { StandardAccessor } from '../StandardAccessor';
 import {
@@ -22,6 +22,7 @@ import {
   CandidateRejection,
   generateDeterministicCandidateId,
   SPATIAL_UTILITIES,
+  BuildingInteriorGeometry,
 } from '../strategies/strategyTypes';
 import { buildLayoutTopology } from '../topology/topologyBuilder';
 import { deriveTopologyZones } from '../topology/topologyZoner';
@@ -55,6 +56,7 @@ export interface GeneratedCandidateLayout {
   readonly candidateId: string;
   readonly strategy: LayoutStrategyId;
   readonly arrangement: SpatialArrangementType;
+  readonly circulationRequirement: CirculationRequirementType;
   readonly topology: LayoutTopology;
   readonly objects: readonly LayoutObject[];
   readonly envelopes: readonly ObjectEnvelope[];
@@ -81,6 +83,7 @@ export interface GeneratedCandidateLayout {
     };
     readonly futureExpansionBaysReserved: number;
     readonly attemptedArrangements: readonly SpatialArrangementType[];
+    readonly buildingInterior: BuildingInteriorGeometry;
   };
 }
 
@@ -834,6 +837,29 @@ export class CandidateGenerator {
     const totalBaysRequested = program.bays.reduce((sum, b) => sum + b.quantity, 0);
     const totalBaysPlaced = placedObjects.filter((o) => o.type === 'service_bay').length;
 
+    // FASE 4.2C — GAP-003: Deterministic building interior geometry calculation
+    const grossWidth = building.width;
+    const grossLength = building.length;
+    const grossArea = roundMillimeter(grossWidth * grossLength);
+    const interiorWidth = roundMillimeter(grossWidth - 2 * wallThickness);
+    const interiorLength = roundMillimeter(grossLength - 2 * wallThickness);
+    const interiorArea = roundMillimeter(interiorWidth * interiorLength);
+
+    const buildingInterior: BuildingInteriorGeometry = {
+      grossWidth,
+      grossLength,
+      grossArea,
+      wallThickness,
+      interiorWidth,
+      interiorLength,
+      interiorArea,
+      provenance: {
+        source: 'building_envelope',
+        wallThicknessParameterKey: 'building.wall_thickness',
+        formula: '(grossWidth - 2*wallThickness) * (grossLength - 2*wallThickness)',
+      },
+    };
+
     const baseCandidate: StrategyCandidate = {
       id: candidateId,
       strategyId,
@@ -856,6 +882,16 @@ export class CandidateGenerator {
         layoutSummary: `${totalBaysPlaced}/${totalBaysRequested} bays placed, ${ancillarySpacesPlaced.length} ancillary spaces.`,
         tradeOffs: 'Evaluated against structural width, central drive aisle, and access clearance.',
       }),
+      spatialContext: Object.freeze({
+        arrangement,
+        circulationRequirement: program.circulationRequirement,
+        buildingInterior: Object.freeze(buildingInterior),
+        provenance: Object.freeze({
+          source: 'generator' as const,
+          generatorName: 'CandidateGenerator',
+          inputProgramField: 'circulationRequirement' as const,
+        }),
+      }),
     };
 
     // Run strict 15-point hard constraint validation
@@ -865,6 +901,7 @@ export class CandidateGenerator {
       candidateId,
       strategy: strategyId,
       arrangement,
+      circulationRequirement: program.circulationRequirement,
       topology,
       objects: baseCandidate.layout.objects,
       envelopes: baseCandidate.envelopes,
@@ -891,6 +928,7 @@ export class CandidateGenerator {
         }),
         futureExpansionBaysReserved,
         attemptedArrangements: Object.freeze([...attemptedArrangements]),
+        buildingInterior: Object.freeze(buildingInterior),
       }),
     };
 

@@ -130,6 +130,15 @@ describe('Milestone 2.5 — Strategy Generator Contracts', () => {
           layoutSummary: 'Achieves 6 bays with 6.0m central drive aisle',
           tradeOffs: 'Tight technician clearance between bays',
         },
+        spatialContext: {
+          arrangement: 'SINGLE_COMB_NORTH',
+          circulationRequirement: 'back_out_turnaround',
+          provenance: {
+            source: 'generator',
+            generatorName: 'CapacityStrategyGenerator',
+            inputProgramField: 'circulationRequirement',
+          },
+        },
       };
 
       expect(mockCandidate.id).toBe('candidate-capacity-01');
@@ -179,6 +188,15 @@ describe('Milestone 2.5 — Strategy Generator Contracts', () => {
                 strategyRationale: 'Test rationale',
                 layoutSummary: 'Test summary',
                 tradeOffs: 'Test trade-offs',
+              },
+              spatialContext: {
+                arrangement: 'SINGLE_COMB_NORTH',
+                circulationRequirement: 'back_out_turnaround',
+                provenance: {
+                  source: 'generator',
+                  generatorName: this.name,
+                  inputProgramField: 'circulationRequirement',
+                },
               },
             },
             success: true,

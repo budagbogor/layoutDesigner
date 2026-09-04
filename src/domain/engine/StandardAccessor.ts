@@ -73,6 +73,17 @@ export class StandardAccessor {
   }
 
   /**
+   * FASE 4.2C — GAP-002 closure.
+   * Retrieves the standard vehicle width for a given vehicle class key (e.g. "vehicle.mpv" -> "vehicle.mpv.width").
+   * Throws MissingStandardParameterError if the parameter is absent from the standard snapshot.
+   * Strictly adheres to zero-fallback architecture.
+   */
+  public getVehicleWidth(vehicleClassKey: string): number {
+    const key = vehicleClassKey.endsWith('.width') ? vehicleClassKey : `${vehicleClassKey}.width`;
+    return this.getRequiredNumericValue(key);
+  }
+
+  /**
    * Optional parameter query. Returns undefined if key is not present.
    */
   public getParameter(key: string): StandardParameter | undefined {

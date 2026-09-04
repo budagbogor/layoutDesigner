@@ -59,6 +59,15 @@ describe('Milestone 2.6 — Strategy Evaluator Contracts', () => {
       layoutSummary: '3 bays placed',
       tradeOffs: 'Minimum clearances',
     },
+    spatialContext: {
+      arrangement: 'SINGLE_COMB_NORTH',
+      circulationRequirement: 'back_out_turnaround',
+      provenance: {
+        source: 'generator',
+        generatorName: 'CapacityGenerator',
+        inputProgramField: 'circulationRequirement',
+      },
+    },
   };
 
   const criteriaConfigs: CriterionConfig[] = [

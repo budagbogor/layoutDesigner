@@ -69,6 +69,15 @@ describe('Milestone 2.6 — Concrete Strategy Evaluator', () => {
       layoutSummary: '3 bays placed',
       tradeOffs: 'Minimum clearances',
     },
+    spatialContext: {
+      arrangement: 'SINGLE_COMB_NORTH',
+      circulationRequirement: 'back_out_turnaround',
+      provenance: {
+        source: 'generator',
+        generatorName: 'CapacityGenerator',
+        inputProgramField: 'circulationRequirement',
+      },
+    },
   };
 
   describe('1. Valid Candidate Evaluation & Weighted Score', () => {

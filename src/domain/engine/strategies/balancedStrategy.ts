@@ -362,6 +362,29 @@ export class BalancedStrategyGenerator implements StrategyGenerator {
             ? `Balanced zone allocation reserved space for customer/equipment, resulting in ${placedBaysCount} of ${totalBaysRequested} bays placed.`
             : 'Balanced layout successfully satisfied all program requirements with ergonomic clearances.',
       },
+      spatialContext: {
+        arrangement: 'ZONED_BY_SERVICE',
+        circulationRequirement: program.circulationRequirement,
+        buildingInterior: {
+          grossWidth: building.width,
+          grossLength: building.length,
+          grossArea: roundMillimeter(building.width * building.length),
+          wallThickness,
+          interiorWidth: roundMillimeter(building.width - 2 * wallThickness),
+          interiorLength: roundMillimeter(building.length - 2 * wallThickness),
+          interiorArea: roundMillimeter((building.width - 2 * wallThickness) * (building.length - 2 * wallThickness)),
+          provenance: {
+            source: 'building_envelope',
+            wallThicknessParameterKey: 'building.wall_thickness',
+            formula: '(grossWidth - 2*wallThickness) * (grossLength - 2*wallThickness)',
+          },
+        },
+        provenance: {
+          source: 'generator' as const,
+          generatorName: this.name,
+          inputProgramField: 'circulationRequirement' as const,
+        },
+      },
     };
 
     return {
