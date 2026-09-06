@@ -78,7 +78,12 @@ export interface SumoPodModelPreset {
 }
 
 /**
- * Curated list of relevant SumoPod AI models for the CAD/Workshop Assistant project.
+ * Curated list of suggested SumoPod AI models for the UI quick-selection dropdown.
+ *
+ * NOTE (SSOT Boundary):
+ * - This catalog serves as UI hints/suggestions and preset shortcuts for user convenience.
+ * - It is NOT an authoritative guarantee that every model is available on a specific SumoPod account/tier.
+ * - The runtime source of truth for available models is `provider.fetchModels()` or direct API response.
  */
 export const SUMOPOD_CATALOG_MODELS: readonly SumoPodModelPreset[] = [
   // Anthropic Claude

@@ -463,8 +463,9 @@ describe('FASE 4.1 — Layout Generation Orchestrator', () => {
       const accessor = new StandardAccessor(standardNoScoring);
       const orchestrator = new LayoutOrchestrator();
 
-      const result1 = orchestrator.generateLayout(feasibleMediumInput, accessor);
-      const result2 = orchestrator.generateLayout(feasibleMediumInput, accessor);
+      const options = { executedAt: '2026-09-04T00:00:00.000Z' };
+      const result1 = orchestrator.generateLayout(feasibleMediumInput, accessor, options);
+      const result2 = orchestrator.generateLayout(feasibleMediumInput, accessor, options);
 
       expect(JSON.stringify(result1)).toBe(JSON.stringify(result2));
     });

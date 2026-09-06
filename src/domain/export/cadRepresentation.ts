@@ -32,18 +32,26 @@ export interface CadProjectConversionOptions {
   readonly projectId?: string;
   readonly projectName?: string;
   readonly includeEnvelopesAsObjects?: boolean;
+  /**
+   * Explicit flag required if converting a DISQUALIFIED / invalid candidate
+   * for diagnostic visualization/inspection. When false or omitted, converting
+   * an invalid/disqualified candidate throws an explicit error.
+   */
+  readonly allowDiagnostic?: boolean;
 }
 
 /**
  * Converts a GeneratedCandidateLayout or OrchestratedCandidate into a WorkshopProject CAD document.
  * Faithfully maps all placed objects, circulation aisles, and access doors without altering geometry.
+ * Rejects invalid/disqualified candidates unless options.allowDiagnostic is explicitly true.
  */
 export function candidateToCadProject(
   candidate: GeneratedCandidateLayout | OrchestratedCandidate,
   input: LayoutEngineInput,
   options: CadProjectConversionOptions = {}
 ): WorkshopProject {
-  const isOrchestrated = 'layout' in candidate && 'strategy' in candidate && typeof (candidate as any).layout === 'object';
+  const isOrchestrated =
+    'layout' in candidate && 'strategy' in candidate && typeof (candidate as any).layout === 'object';
   const genLayout: GeneratedCandidateLayout = isOrchestrated
     ? (candidate as OrchestratedCandidate).layout
     : (candidate as GeneratedCandidateLayout);
@@ -52,27 +60,40 @@ export function candidateToCadProject(
     ? (candidate as OrchestratedCandidate).validity
     : (candidate as GeneratedCandidateLayout).status;
 
-  const score = isOrchestrated
-    ? (candidate as OrchestratedCandidate).score
-    : null;
+  const isValid = isOrchestrated
+    ? (candidate as OrchestratedCandidate).isValid
+    : (candidate as GeneratedCandidateLayout).status === 'VALID' &&
+      (candidate as GeneratedCandidateLayout).validation?.isValid !== false;
+
+  // Strict boundary: DISQUALIFIED / invalid candidate must not silently convert to CAD
+  if ((validity === 'DISQUALIFIED' || !isValid) && !options.allowDiagnostic) {
+    throw new Error(
+      `Cannot convert DISQUALIFIED or invalid candidate '${genLayout.candidateId}' to CAD project. Only valid candidates may be converted to final CAD documents.`
+    );
+  }
+
+  const score = isOrchestrated ? (candidate as OrchestratedCandidate).score : null;
 
   const projectId = options.projectId ?? genLayout.candidateId;
-  const projectName = options.projectName ?? `Workshop Layout (${genLayout.strategy} - ${genLayout.arrangement})`;
+  const projectName =
+    options.projectName ?? `Workshop Layout (${genLayout.strategy} - ${genLayout.arrangement})`;
 
   // 1. Base placed objects from candidate
-  const objects: LayoutObject[] = [...genLayout.objects.map((obj) => ({
-    id: obj.id,
-    type: obj.type,
-    layer: obj.layer,
-    geometry: {
-      x: roundMillimeter(obj.geometry.x),
-      y: roundMillimeter(obj.geometry.y),
-      width: roundMillimeter(obj.geometry.width),
-      length: roundMillimeter(obj.geometry.length),
-      rotation: roundMillimeter(obj.geometry.rotation),
-    },
-    metadata: obj.metadata ? { ...obj.metadata } : undefined,
-  }))];
+  const objects: LayoutObject[] = [
+    ...genLayout.objects.map((obj) => ({
+      id: obj.id,
+      type: obj.type,
+      layer: obj.layer,
+      geometry: {
+        x: roundMillimeter(obj.geometry.x),
+        y: roundMillimeter(obj.geometry.y),
+        width: roundMillimeter(obj.geometry.width),
+        length: roundMillimeter(obj.geometry.length),
+        rotation: roundMillimeter(obj.geometry.rotation),
+      },
+      metadata: obj.metadata ? { ...obj.metadata } : undefined,
+    })),
+  ];
 
   // 2. Circulation aisles & corridors from candidate envelopes
   const aisleEnvelopes = genLayout.envelopes.filter(
@@ -101,14 +122,26 @@ export function candidateToCadProject(
     });
   }
 
-  // 3. Access Doors from input definition
+  // 3. Access Doors from input definition (Zero fallback dimensions)
   if (input.accessPoints && input.accessPoints.length > 0) {
-    const wallThickness = genLayout.metadata?.buildingInterior?.wallThickness ?? 0.25;
+    const wallThickness = genLayout.metadata?.buildingInterior?.wallThickness;
+
+    if (typeof wallThickness !== 'number' || isNaN(wallThickness) || wallThickness <= 0) {
+      throw new Error(
+        `Missing required standard parameter: building.wall_thickness in candidate metadata for '${genLayout.candidateId}'. Cannot convert to CAD without standard geometry parameters.`
+      );
+    }
 
     for (const ap of input.accessPoints) {
       if (objects.some((o) => o.id === ap.id || o.id === `door-${ap.id}`)) continue;
 
-      const doorWidth = ap.widthMeters ?? 4.0;
+      if (typeof ap.widthMeters !== 'number' || isNaN(ap.widthMeters) || ap.widthMeters <= 0) {
+        throw new Error(
+          `Access point '${ap.id}' is missing a valid widthMeters dimension in LayoutEngineInput.`
+        );
+      }
+
+      const doorWidth = roundMillimeter(ap.widthMeters);
       let doorX = 0;
       let doorY = 0;
       let doorObjW = doorWidth;
@@ -220,7 +253,7 @@ export function exportCandidateToSvg(
   input: LayoutEngineInput,
   exportOptions?: Partial<SvgExportOptions>
 ): string {
-  const project = candidateToCadProject(candidate, input);
+  const project = candidateToCadProject(candidate, input, { allowDiagnostic: true });
   return exportLayoutToSvg({
     project,
     ...exportOptions,

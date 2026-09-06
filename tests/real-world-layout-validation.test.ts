@@ -351,8 +351,9 @@ describe('FASE 4.3 — Real-World Layout Validation', () => {
         ancillarySpaces: { customerLounge: true, cashierOffice: true, partsWarehouse: false, restroom: true },
       };
 
-      const run1 = orchestrator.generateFromRequirement(req, accessor);
-      const run2 = orchestrator.generateFromRequirement(req, accessor);
+      const options = { executedAt: '2026-09-04T00:00:00.000Z' };
+      const run1 = orchestrator.generateFromRequirement(req, accessor, options);
+      const run2 = orchestrator.generateFromRequirement(req, accessor, options);
 
       expect(JSON.stringify(run1)).toBe(JSON.stringify(run2));
     });

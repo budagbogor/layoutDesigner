@@ -49,8 +49,8 @@ describe('Domain Models & Fixture Conformance', () => {
 
     // Scoring weights
     expect(standard.scoring).toBeDefined();
-    const flowScore = standard.scoring?.find((s) => s.key === 'vehicle_flow');
-    expect(flowScore?.weight).toBe(25);
+    const capacityScore = standard.scoring?.find((s) => s.key === 'capacity_throughput');
+    expect(capacityScore?.weight).toBe(100);
   });
 
   it('allows creating typed layout objects in accordance with the schema', () => {

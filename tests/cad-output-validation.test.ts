@@ -306,14 +306,22 @@ describe('FASE 4.4 — CAD Output Validation & Integration', () => {
       expect(svg).toBeNull();
     });
 
-    it('allows exporting individual candidate for diagnostic inspection if explicitly requested', () => {
+    it('strictly rejects converting DISQUALIFIED candidate without allowDiagnostic flag and allows diagnostic export when requested', () => {
       const result = orchestrator.generateLayout(disqualifiedInput, accessor);
 
       const firstDisqualified = result.disqualifiedCandidates[0];
       expect(firstDisqualified).toBeDefined();
 
-      const diagProject = candidateToCadProject(firstDisqualified, disqualifiedInput);
-      expect(diagProject.layout.status).toBe('draft'); // Mark as draft/diagnostic
+      // Normal conversion strictly throws
+      expect(() => {
+        candidateToCadProject(firstDisqualified, disqualifiedInput);
+      }).toThrow(/Cannot convert DISQUALIFIED or invalid candidate/);
+
+      // Explicit diagnostic conversion succeeds with draft status
+      const diagProject = candidateToCadProject(firstDisqualified, disqualifiedInput, {
+        allowDiagnostic: true,
+      });
+      expect(diagProject.layout.status).toBe('draft');
 
       const diagSvg = exportCandidateToSvg(firstDisqualified, disqualifiedInput);
       expect(diagSvg).toContain('<?xml version="1.0" encoding="UTF-8"?>');

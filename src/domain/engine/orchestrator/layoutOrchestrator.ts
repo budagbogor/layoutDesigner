@@ -71,7 +71,7 @@ export class LayoutOrchestrator {
     accessor: StandardAccessor,
     options?: LayoutOrchestratorOptions
   ): LayoutEngineResult {
-    const executedAt = '2026-09-04T00:00:00.000Z'; // Deterministic timestamp
+    const executedAt = options?.executedAt ?? new Date().toISOString();
     const standardVersionId = accessor.getStandardVersion();
 
     // 1. Resolve strategies requested or allowed
@@ -117,6 +117,8 @@ export class LayoutOrchestrator {
         let isValid =
           layoutCandidate.validation.isValid && layoutCandidate.status !== 'DISQUALIFIED';
 
+        let scoringRejectionReason: string | null = null;
+
         // 4. Strategy Evaluation for VALID candidates
         if (isValid) {
           try {
@@ -129,11 +131,20 @@ export class LayoutOrchestrator {
               validity = 'DISQUALIFIED';
               isValid = false;
             }
-          } catch {
-            // If evaluation throws due to an unconfigured scoring criterion,
-            // candidate retains structural validity without numeric score.
+          } catch (evalError) {
+            // SCORING FAILURE: An unresolvable scoring gap, unsupported criterion,
+            // or missing benchmark parameter occurred during evaluation.
+            // Under zero-fallback engineering principles, this is a structured failure
+            // and must NOT be silently swallowed into a valid unscored candidate.
+            validity = 'DISQUALIFIED';
+            isValid = false;
             score = null;
             scoreBreakdown = null;
+
+            const scoringErrorMessage =
+              evalError instanceof Error ? evalError.message : String(evalError);
+
+            scoringRejectionReason = `[SCORING-FAILURE-001] ${scoringErrorMessage}`;
           }
         }
 
@@ -141,6 +152,10 @@ export class LayoutOrchestrator {
         const rejectionReasons: string[] = [
           ...layoutCandidate.rejections.map((r) => `[${r.ruleId}] ${r.reason}`),
         ];
+
+        if (scoringRejectionReason) {
+          rejectionReasons.push(scoringRejectionReason);
+        }
 
         if (
           scoreBreakdown &&
@@ -157,6 +172,10 @@ export class LayoutOrchestrator {
           for (const rej of layoutCandidate.rejections) {
             disqualificationBreakdown[rej.ruleId] =
               (disqualificationBreakdown[rej.ruleId] ?? 0) + 1;
+          }
+          if (scoringRejectionReason) {
+            disqualificationBreakdown['SCORING-FAILURE-001'] =
+              (disqualificationBreakdown['SCORING-FAILURE-001'] ?? 0) + 1;
           }
         }
 
@@ -258,7 +277,7 @@ export class LayoutOrchestrator {
     accessor: StandardAccessor,
     options?: LayoutOrchestratorOptions
   ): LayoutEngineResult {
-    const executedAt = '2026-09-04T00:00:00.000Z';
+    const executedAt = options?.executedAt ?? new Date().toISOString();
     const standardVersionId = accessor.getStandardVersion();
 
     const mapper = new RequirementMapper();

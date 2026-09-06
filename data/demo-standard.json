@@ -50,37 +50,9 @@
     { "key": "scoring.capacity_throughput.benchmark_min", "value": 20.0, "unit": "m2/bay", "constraint_level": "OPTIMIZATION" },
     { "key": "scoring.capacity_throughput.benchmark_target", "value": 100.0, "unit": "m2/bay", "constraint_level": "OPTIMIZATION" },
 
-    { "key": "scoring.vehicle_flow.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.vehicle_flow.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.vehicle_flow.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.space_efficiency.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.space_efficiency.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.space_efficiency.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.capacity.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.capacity.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.capacity.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.equipment_access.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.equipment_access.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.equipment_access.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.technician_flow.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.technician_flow.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.technician_flow.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.customer_flow.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.customer_flow.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.customer_flow.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.safety.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.safety.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.safety.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-
-    { "key": "scoring.future_expansion.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.future_expansion.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
-    { "key": "scoring.future_expansion.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" }
+    { "key": "scoring.equipment_support.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.equipment_support.benchmark_min", "value": 0.0, "unit": "ratio", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.equipment_support.benchmark_target", "value": 1.0, "unit": "ratio", "constraint_level": "OPTIMIZATION" }
   ],
   "rules": [
     { "id": "BOUNDARY-001", "name": "Object must remain inside building", "severity": "HARD", "active": true },
@@ -91,14 +63,6 @@
     { "id": "FLOW-BAY-AISLE-001", "name": "Bay Approach Accessibility", "severity": "HARD", "active": true }
   ],
   "scoring": [
-    { "key": "vehicle_flow", "weight": 25 },
-    { "key": "space_efficiency", "weight": 20 },
-    { "key": "capacity", "weight": 15 },
-    { "key": "equipment_access", "weight": 10 },
-    { "key": "technician_flow", "weight": 10 },
-    { "key": "customer_flow", "weight": 5 },
-    { "key": "safety", "weight": 10 },
-    { "key": "future_expansion", "weight": 5 },
     { "key": "capacity_throughput", "weight": 100 }
   ]
 }

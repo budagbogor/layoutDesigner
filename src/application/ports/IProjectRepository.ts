@@ -8,4 +8,5 @@ export interface IProjectRepository {
   getProjectById(id: string): Promise<WorkshopProject | null>;
   saveProject(project: WorkshopProject): Promise<void>;
   listProjects(): Promise<WorkshopProject[]>;
+  deleteProject(id: string): Promise<void>;
 }

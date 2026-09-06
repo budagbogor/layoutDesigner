@@ -192,6 +192,10 @@ describe('Phase 1.7 — CAD UI Panels & Inspector', () => {
 
       const tree = PropertiesPanel({
         selectedObject: store.getState().project.layout.objects[0],
+        building: store.getState().project.building,
+        site: store.getState().project.site,
+        onUpdateBuilding: (dim) => store.updateBuilding(dim),
+        onUpdateSite: (dim) => store.updateSite(dim),
         onUpdateGeometry: (id, partial) => store.updateObjectGeometry(id, partial),
         onUpdateObject: (id, updates) => store.updateObject(id, updates),
         onDelete: (id) => store.deleteObjects([id]),

@@ -120,7 +120,7 @@ export type AIParseResult =
 const CAD_GEOMETRY_KEYS = [
   'x', 'y', 'rotation', 'width', 'length',
   'offsetMeters', 'widthMeters_cad', 'polygon', 'vertices',
-  'envelope', 'clearance', 'wallThickness',
+  'envelope', 'clearance', 'wallThickness', 'coordinates',
 ] as const;
 
 /**

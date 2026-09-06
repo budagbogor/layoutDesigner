@@ -64,6 +64,7 @@ export class CadStore {
       validationReport: initialReport,
       canUndo: false,
       canRedo: false,
+      isDirty: false,
     };
   }
 
@@ -73,6 +74,177 @@ export class CadStore {
 
   public getState(): CadEditorState {
     return this.state;
+  }
+
+  /**
+   * Replaces the active project in the CadStore with a newly loaded WorkshopProject.
+   * Resets undo/redo history cleanly, regenerates boundary validation report,
+   * clears selection, resets isDirty, and notifies all subscribers.
+   * Does NOT alter source candidate or mutate geometry.
+   */
+  public loadProject(newProject: WorkshopProject): void {
+    const newObjects = newProject.layout.objects
+      ? structuredClone(newProject.layout.objects)
+      : [];
+    const report = generateValidationReport(newProject.building, newObjects);
+
+    this.undoStack = [];
+    this.redoStack = [];
+
+    this.state = {
+      ...this.state,
+      project: {
+        ...structuredClone(newProject),
+        layout: {
+          ...structuredClone(newProject.layout),
+          objects: newObjects,
+        },
+      },
+      selectedIds: [],
+      validationReport: report,
+      canUndo: false,
+      canRedo: false,
+      isDirty: false,
+    };
+
+    this.notify();
+  }
+
+  public renameProject(newName: string): void {
+    const trimmed = newName.trim();
+    if (!trimmed || this.state.project.project.name === trimmed) return;
+
+    this.state = {
+      ...this.state,
+      project: {
+        ...this.state.project,
+        project: {
+          ...this.state.project.project,
+          name: trimmed,
+        },
+      },
+      isDirty: true,
+    };
+    this.notify();
+  }
+
+  public markClean(): void {
+    if (!this.state.isDirty) return;
+    this.state = {
+      ...this.state,
+      isDirty: false,
+    };
+    this.notify();
+  }
+
+  public isDirty(): boolean {
+    return this.state.isDirty;
+  }
+
+  /**
+   * Updates building dimensions (width and length in meters).
+   * Validates positive finite numbers, recalculates boundary validation report,
+   * marks project dirty, and preserves all object coordinates.
+   */
+  public updateBuilding(dimensions: { width?: number; length?: number }): boolean {
+    const { width, length } = dimensions;
+    const currentBuilding = this.state.project.building;
+
+    const newWidth = width !== undefined ? width : currentBuilding.width;
+    const newLength = length !== undefined ? length : currentBuilding.length;
+
+    // Strict validation: Reject NaN, Infinity, zero, negative, non-numeric
+    if (
+      typeof newWidth !== 'number' ||
+      isNaN(newWidth) ||
+      !isFinite(newWidth) ||
+      newWidth <= 0 ||
+      typeof newLength !== 'number' ||
+      isNaN(newLength) ||
+      !isFinite(newLength) ||
+      newLength <= 0
+    ) {
+      return false;
+    }
+
+    const roundedWidth = roundMillimeter(newWidth);
+    const roundedLength = roundMillimeter(newLength);
+
+    if (currentBuilding.width === roundedWidth && currentBuilding.length === roundedLength) {
+      return true;
+    }
+
+    const newBuilding = {
+      ...currentBuilding,
+      width: roundedWidth,
+      length: roundedLength,
+    };
+
+    const report = generateValidationReport(newBuilding, this.state.project.layout.objects);
+
+    this.state = {
+      ...this.state,
+      project: {
+        ...this.state.project,
+        building: newBuilding,
+      },
+      validationReport: report,
+      isDirty: true,
+    };
+
+    this.notify();
+    return true;
+  }
+
+  /**
+   * Updates site dimensions (width and length in meters).
+   * Validates positive finite numbers, marks project dirty.
+   */
+  public updateSite(dimensions: { width?: number; length?: number }): boolean {
+    const { width, length } = dimensions;
+    const currentSite = this.state.project.site;
+
+    const newWidth = width !== undefined ? width : currentSite.width;
+    const newLength = length !== undefined ? length : currentSite.length;
+
+    // Strict validation: Reject NaN, Infinity, zero, negative, non-numeric
+    if (
+      typeof newWidth !== 'number' ||
+      isNaN(newWidth) ||
+      !isFinite(newWidth) ||
+      newWidth <= 0 ||
+      typeof newLength !== 'number' ||
+      isNaN(newLength) ||
+      !isFinite(newLength) ||
+      newLength <= 0
+    ) {
+      return false;
+    }
+
+    const roundedWidth = roundMillimeter(newWidth);
+    const roundedLength = roundMillimeter(newLength);
+
+    if (currentSite.width === roundedWidth && currentSite.length === roundedLength) {
+      return true;
+    }
+
+    const newSite = {
+      ...currentSite,
+      width: roundedWidth,
+      length: roundedLength,
+    };
+
+    this.state = {
+      ...this.state,
+      project: {
+        ...this.state.project,
+        site: newSite,
+      },
+      isDirty: true,
+    };
+
+    this.notify();
+    return true;
   }
 
   public subscribe(listener: CadStateListener): () => void {
@@ -282,6 +454,7 @@ export class CadStore {
       validationReport: report,
       canUndo: this.undoStack.length > 0,
       canRedo: false,
+      isDirty: true,
     };
 
     this.notify();
@@ -310,6 +483,7 @@ export class CadStore {
       validationReport: report,
       canUndo: this.undoStack.length > 0,
       canRedo: this.redoStack.length > 0,
+      isDirty: true,
     };
 
     this.notify();
@@ -339,6 +513,7 @@ export class CadStore {
       validationReport: report,
       canUndo: this.undoStack.length > 0,
       canRedo: this.redoStack.length > 0,
+      isDirty: true,
     };
 
     this.notify();

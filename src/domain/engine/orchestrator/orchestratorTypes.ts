@@ -121,6 +121,13 @@ export interface LayoutOrchestratorOptions {
    * If omitted, explores all supported arrangements ('SINGLE_COMB_NORTH', 'DOUBLE_COMB_OPPOSING', 'ZONED_BY_SERVICE').
    */
   readonly arrangements?: readonly SpatialArrangementType[];
+
+  /**
+   * Optional custom ISO timestamp for provenance metadata.
+   * Useful for deterministic testing and snapshot reproducibility.
+   * Note: Timestamp has zero effect on candidate ranking, geometry, scores, or candidate IDs.
+   */
+  readonly executedAt?: string;
 }
 
 /**

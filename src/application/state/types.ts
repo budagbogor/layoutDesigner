@@ -36,6 +36,7 @@ export interface CadEditorState {
   validationReport: ValidationReport;
   canUndo: boolean;
   canRedo: boolean;
+  isDirty: boolean;
 }
 
 export type CadStateListener = (state: CadEditorState) => void;

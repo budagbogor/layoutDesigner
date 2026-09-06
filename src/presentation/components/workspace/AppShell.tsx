@@ -17,6 +17,8 @@ import { RequirementMapper } from '../../../application/requirements/requirement
 import { layoutEngineResultToCadProject } from '../../../domain/export/cadRepresentation';
 import { WorkshopStandard } from '../../../domain/models/standard';
 import demoStandardFixture from '../../../../data/demo-standard.json';
+import { LayoutEngineResult } from '../../../domain/engine/orchestrator/orchestratorTypes';
+import { LayoutEngineInput } from '../../../domain/engine/types';
 import { AiWorkshopAssistant } from '../ai/AiWorkshopAssistant';
 import { CadWorkspace } from './CadWorkspace';
 
@@ -39,6 +41,9 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<AppViewMode>(initialMode);
   const [currentProject, setCurrentProject] = useState<WorkshopProject>(initialProject);
+  const [layoutEngineResult, setLayoutEngineResult] = useState<LayoutEngineResult | null>(null);
+  const [engineInput, setEngineInput] = useState<LayoutEngineInput | null>(null);
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [isGeneratingLayout, setIsGeneratingLayout] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
@@ -81,6 +86,10 @@ export const AppShell: React.FC<AppShellProps> = ({
         return;
       }
 
+      // Retain generation result and engine input for alternative candidate exploration
+      setLayoutEngineResult(engineResult);
+      setEngineInput(mappingResult.engineInput);
+      setActiveCandidateId(engineResult.bestCandidate.candidateId);
       setCurrentProject(cadProject);
       setViewMode('cad');
     } catch (err) {
@@ -110,7 +119,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             {viewMode === 'ai' ? 'AI DESIGN' : 'CAD CORE'}
           </span>
           <span className="brand-title">Mobeng Workshop Studio</span>
-          <span className="header-status-badge">Phase 4.5 — Golden Path</span>
+          <span className="header-status-badge">Phase 4.6 — Layout Explorer</span>
         </div>
 
         {/* Mode Switcher Tabs */}
@@ -157,7 +166,14 @@ export const AppShell: React.FC<AppShellProps> = ({
           />
         ) : (
           <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            <CadWorkspace key={currentProject.project.id} initialProject={currentProject} />
+            <CadWorkspace
+              key={currentProject.project.id}
+              initialProject={currentProject}
+              layoutEngineResult={layoutEngineResult}
+              engineInput={engineInput}
+              activeCandidateId={activeCandidateId}
+              onActiveCandidateChange={setActiveCandidateId}
+            />
           </div>
         )}
       </main>

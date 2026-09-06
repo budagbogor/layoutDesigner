@@ -1,11 +1,22 @@
-import React from 'react';
-import { LayoutObject, Geometry, CadObjectType, CadLayerId } from '@/domain/models/project';
+import React, { useState, useEffect } from 'react';
+import {
+  LayoutObject,
+  Geometry,
+  CadObjectType,
+  CadLayerId,
+  BuildingDefinition,
+  SiteDefinition,
+} from '@/domain/models/project';
 import { roundMillimeter } from '@/domain/geometry/precision';
 import { normalizeAngle, getGeometryAABB } from '@/domain/geometry/primitives';
 import { STANDARD_CAD_LAYERS } from '@/application/state/CadStore';
 
 interface PropertiesPanelProps {
   selectedObject: LayoutObject | null;
+  building: BuildingDefinition;
+  site: SiteDefinition;
+  onUpdateBuilding: (dimensions: { width?: number; length?: number }) => boolean;
+  onUpdateSite: (dimensions: { width?: number; length?: number }) => boolean;
   onUpdateGeometry: (id: string, partial: Partial<Geometry>) => void;
   onUpdateObject: (id: string, updates: Partial<Omit<LayoutObject, 'id'>>) => void;
   onDelete: (id: string) => void;
@@ -26,23 +37,298 @@ const OBJECT_TYPES: { value: CadObjectType; label: string }[] = [
   { value: 'text', label: 'Text Annotation' },
 ];
 
+interface SiteBuildingInspectorProps {
+  building: BuildingDefinition;
+  site: SiteDefinition;
+  onUpdateBuilding: (dimensions: { width?: number; length?: number }) => boolean;
+  onUpdateSite: (dimensions: { width?: number; length?: number }) => boolean;
+}
+
+export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
+  building,
+  site,
+  onUpdateBuilding,
+  onUpdateSite,
+}) => {
+  const [siteWidthInput, setSiteWidthInput] = useState(site.width.toString());
+  const [siteLengthInput, setSiteLengthInput] = useState(site.length.toString());
+  const [bldgWidthInput, setBldgWidthInput] = useState(building.width.toString());
+  const [bldgLengthInput, setBldgLengthInput] = useState(building.length.toString());
+  const [dimError, setDimError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSiteWidthInput(site.width.toString());
+    setSiteLengthInput(site.length.toString());
+  }, [site.width, site.length]);
+
+  useEffect(() => {
+    setBldgWidthInput(building.width.toString());
+    setBldgLengthInput(building.length.toString());
+  }, [building.width, building.length]);
+
+  const siteArea = roundMillimeter(site.width * site.length);
+  const bldgArea = roundMillimeter(building.width * building.length);
+  const bcr = siteArea > 0 ? ((bldgArea / siteArea) * 100).toFixed(1) : '0.0';
+
+  const commitSiteChange = (field: 'width' | 'length', valStr: string) => {
+    const num = parseFloat(valStr);
+    if (isNaN(num) || !isFinite(num) || num <= 0) {
+      setDimError('Site dimensions must be a valid number greater than 0 meters.');
+      if (field === 'width') setSiteWidthInput(site.width.toString());
+      if (field === 'length') setSiteLengthInput(site.length.toString());
+      return;
+    }
+    setDimError(null);
+    onUpdateSite({ [field]: num });
+  };
+
+  const commitBldgChange = (field: 'width' | 'length', valStr: string) => {
+    const num = parseFloat(valStr);
+    if (isNaN(num) || !isFinite(num) || num <= 0) {
+      setDimError('Building dimensions must be a valid number greater than 0 meters.');
+      if (field === 'width') setBldgWidthInput(building.width.toString());
+      if (field === 'length') setBldgLengthInput(building.length.toString());
+      return;
+    }
+    setDimError(null);
+    onUpdateBuilding({ [field]: num });
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} data-testid="site-building-inspector">
+      {/* Header Notice */}
+      <div
+        style={{
+          background: 'rgba(0, 210, 255, 0.06)',
+          border: '1px solid rgba(0, 210, 255, 0.2)',
+          borderRadius: '6px',
+          padding: '10px 12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+          <span style={{ fontSize: '14px' }}>📐</span>
+          <strong style={{ fontSize: '12px', color: 'var(--accent-cyan)' }}>Site &amp; Building Parameters</strong>
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+          Adjust physical plot and building perimeter boundaries. All CAD objects preserve their exact coordinates.
+        </div>
+      </div>
+
+      {/* Dimension Error Banner */}
+      {dimError && (
+        <div
+          data-testid="dimension-error-banner"
+          style={{
+            background: 'rgba(248, 81, 73, 0.15)',
+            border: '1px solid rgba(248, 81, 73, 0.4)',
+            borderRadius: '4px',
+            padding: '8px 10px',
+            color: '#f85149',
+            fontSize: '11px',
+          }}
+        >
+          ⚠️ {dimError}
+        </div>
+      )}
+
+      {/* BUILDING SECTION */}
+      <div
+        style={{
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '6px',
+          padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+            🏢 Building Parameters
+          </span>
+          <span style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+            {bldgArea.toFixed(1)} m²
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              Width (m)
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              value={bldgWidthInput}
+              onChange={(e) => setBldgWidthInput(e.target.value)}
+              onBlur={(e) => commitBldgChange('width', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitBldgChange('width', e.currentTarget.value);
+                  e.currentTarget.blur();
+                }
+              }}
+              data-testid="input-building-width"
+              style={{
+                width: '100%',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                borderRadius: '4px',
+                padding: '5px 8px',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              Length (m)
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              value={bldgLengthInput}
+              onChange={(e) => setBldgLengthInput(e.target.value)}
+              onBlur={(e) => commitBldgChange('length', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitBldgChange('length', e.currentTarget.value);
+                  e.currentTarget.blur();
+                }
+              }}
+              data-testid="input-building-length"
+              style={{
+                width: '100%',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                borderRadius: '4px',
+                padding: '5px 8px',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* SITE SECTION */}
+      <div
+        style={{
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '6px',
+          padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+            🌐 Site / Plot Parameters
+          </span>
+          <span style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+            {siteArea.toFixed(1)} m²
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              Width (m)
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              value={siteWidthInput}
+              onChange={(e) => setSiteWidthInput(e.target.value)}
+              onBlur={(e) => commitSiteChange('width', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitSiteChange('width', e.currentTarget.value);
+                  e.currentTarget.blur();
+                }
+              }}
+              data-testid="input-site-width"
+              style={{
+                width: '100%',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                borderRadius: '4px',
+                padding: '5px 8px',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              Length (m)
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              value={siteLengthInput}
+              onChange={(e) => setSiteLengthInput(e.target.value)}
+              onBlur={(e) => commitSiteChange('length', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitSiteChange('length', e.currentTarget.value);
+                  e.currentTarget.blur();
+                }
+              }}
+              data-testid="input-site-length"
+              style={{
+                width: '100%',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                borderRadius: '4px',
+                padding: '5px 8px',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <span>Building Coverage Ratio:</span>
+          <strong style={{ color: 'var(--text-secondary)' }}>{bcr}%</strong>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   selectedObject,
+  building,
+  site,
+  onUpdateBuilding,
+  onUpdateSite,
   onUpdateGeometry,
   onUpdateObject,
   onDelete,
 }) => {
   if (!selectedObject) {
     return (
-      <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
-        <div style={{ fontSize: '24px', marginBottom: '8px' }}>📐</div>
-        <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
-          No Object Selected
-        </div>
-        <div style={{ fontSize: '11px', marginTop: '6px', lineHeight: '1.5' }}>
-          Click an object on the CAD canvas to view and edit its parametric dimensions.
-        </div>
-      </div>
+      <SiteBuildingInspector
+        building={building}
+        site={site}
+        onUpdateBuilding={onUpdateBuilding}
+        onUpdateSite={onUpdateSite}
+      />
     );
   }
 
