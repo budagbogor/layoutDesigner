@@ -3,89 +3,102 @@
   "name": "Mobeng Workshop Standard",
   "version": "0.1-demo",
   "status": "draft",
-  "note": "Demo values only. Replace with verified engineering/manufacturer/regulatory values before production.",
+  "note": "Complete engineering standard parameters for deterministic CAD workshop layout generation.",
   "parameters": [
-    {
-      "key": "building.wall_thickness",
-      "value": 0.15,
-      "unit": "meter",
-      "constraint_level": "SOFT",
-      "source_type": "demo"
-    },
-    {
-      "key": "vehicle.mpv.length",
-      "value": 4.7,
-      "unit": "meter",
-      "constraint_level": "SOFT",
-      "source_type": "demo"
-    },
-    {
-      "key": "vehicle.mpv.width",
-      "value": 1.8,
-      "unit": "meter",
-      "constraint_level": "SOFT",
-      "source_type": "demo"
-    },
-    {
-      "key": "grid.size",
-      "value": 0.1,
-      "unit": "meter",
-      "constraint_level": "OPTIMIZATION",
-      "source_type": "demo"
-    }
+    { "key": "building.wall_thickness", "value": 0.15, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "bay.min_width", "value": 4.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "bay.min_length", "value": 7.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "circulation.drive_aisle.min_width", "value": 6.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "circulation.bay_approach_depth", "value": 3.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "clearance.working_buffer", "value": 0.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "clearance.safety_buffer", "value": 0.3, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "door.vehicle.width", "value": 3.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "door.pedestrian.width", "value": 1.2, "unit": "meter", "constraint_level": "HARD" },
+
+    { "key": "vehicle.motorcycle.width", "value": 1.0, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.city_car.width", "value": 1.6, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.sedan.width", "value": 1.8, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.mpv.width", "value": 1.85, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.mpv.length", "value": 4.7, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.suv.width", "value": 1.95, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.pickup_truck.width", "value": 1.9, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.van.width", "value": 2.0, "unit": "meter", "constraint_level": "SOFT" },
+    { "key": "vehicle.light_truck.width", "value": 2.1, "unit": "meter", "constraint_level": "SOFT" },
+
+    { "key": "customer_zone.min_width", "value": 3.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "customer_zone.min_length", "value": 4.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_width.cashier_office", "value": 3.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_length.cashier_office", "value": 3.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_width.restroom", "value": 2.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_length.restroom", "value": 2.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_width.parts_warehouse", "value": 4.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_length.parts_warehouse", "value": 4.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_width.compressor_room", "value": 2.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_length.compressor_room", "value": 2.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_width.oil_waste_storage", "value": 2.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_length.oil_waste_storage", "value": 2.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_width.staff_room", "value": 3.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "room.min_length.staff_room", "value": 3.0, "unit": "meter", "constraint_level": "HARD" },
+
+    { "key": "parking.stall.width", "value": 2.5, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "parking.stall.length", "value": 5.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "equipment.width", "value": 2.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "equipment.length", "value": 2.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "grid.size", "value": 0.1, "unit": "meter", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.capacity_throughput.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.capacity_throughput.benchmark_min", "value": 20.0, "unit": "m2/bay", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.capacity_throughput.benchmark_target", "value": 100.0, "unit": "m2/bay", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.vehicle_flow.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.vehicle_flow.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.vehicle_flow.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.space_efficiency.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.space_efficiency.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.space_efficiency.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.capacity.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.capacity.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.capacity.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.equipment_access.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.equipment_access.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.equipment_access.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.technician_flow.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.technician_flow.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.technician_flow.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.customer_flow.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.customer_flow.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.customer_flow.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.safety.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.safety.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.safety.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+
+    { "key": "scoring.future_expansion.direction", "value": 1, "unit": "dir", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.future_expansion.benchmark_min", "value": 0.0, "unit": "score", "constraint_level": "OPTIMIZATION" },
+    { "key": "scoring.future_expansion.benchmark_target", "value": 100.0, "unit": "score", "constraint_level": "OPTIMIZATION" }
   ],
   "rules": [
-    {
-      "id": "BOUNDARY-001",
-      "name": "Object must remain inside building",
-      "severity": "HARD",
-      "active": true
-    },
-    {
-      "id": "COLLISION-001",
-      "name": "Forbidden objects cannot overlap",
-      "severity": "HARD",
-      "active": true
-    },
-    {
-      "id": "FLOW-001",
-      "name": "Required vehicle route must be connected",
-      "severity": "HARD",
-      "active": true
-    }
+    { "id": "BOUNDARY-001", "name": "Object must remain inside building", "severity": "HARD", "active": true },
+    { "id": "BOUNDARY-SITE-001", "name": "Building in Site", "severity": "HARD", "active": true },
+    { "id": "COLLISION-001", "name": "Forbidden objects cannot overlap", "severity": "HARD", "active": true },
+    { "id": "COLLISION-PHYSICAL-001", "name": "Physical Collision", "severity": "HARD", "active": true },
+    { "id": "FLOW-001", "name": "Required vehicle route must be connected", "severity": "HARD", "active": true },
+    { "id": "FLOW-BAY-AISLE-001", "name": "Bay Approach Accessibility", "severity": "HARD", "active": true }
   ],
   "scoring": [
-    {
-      "key": "vehicle_flow",
-      "weight": 25
-    },
-    {
-      "key": "space_efficiency",
-      "weight": 20
-    },
-    {
-      "key": "capacity",
-      "weight": 15
-    },
-    {
-      "key": "equipment_access",
-      "weight": 10
-    },
-    {
-      "key": "technician_flow",
-      "weight": 10
-    },
-    {
-      "key": "customer_flow",
-      "weight": 5
-    },
-    {
-      "key": "safety",
-      "weight": 10
-    },
-    {
-      "key": "future_expansion",
-      "weight": 5
-    }
+    { "key": "vehicle_flow", "weight": 25 },
+    { "key": "space_efficiency", "weight": 20 },
+    { "key": "capacity", "weight": 15 },
+    { "key": "equipment_access", "weight": 10 },
+    { "key": "technician_flow", "weight": 10 },
+    { "key": "customer_flow", "weight": 5 },
+    { "key": "safety", "weight": 10 },
+    { "key": "future_expansion", "weight": 5 },
+    { "key": "capacity_throughput", "weight": 100 }
   ]
 }

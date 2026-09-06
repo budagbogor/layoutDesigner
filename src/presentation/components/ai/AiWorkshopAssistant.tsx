@@ -15,11 +15,17 @@ import { AiProviderConfigPanel } from './AiProviderConfigPanel';
 import { AiRequirementInputPanel } from './AiRequirementInputPanel';
 import { AiAnalysisResultPanel } from './AiAnalysisResultPanel';
 
+import { WorkshopLayoutRequirement } from '../../../domain/requirements/requirementTypes';
+
 export interface AiWorkshopAssistantProps extends UseAiWorkshopAssistantOptions {
   readonly onOpenCadWorkspace?: () => void;
+  readonly onGenerateLayout?: (requirement: WorkshopLayoutRequirement) => void;
+  readonly isGeneratingLayout?: boolean;
+  readonly generationError?: string | null;
 }
 
 export const AiWorkshopAssistant: React.FC<AiWorkshopAssistantProps> = (props) => {
+  const { onGenerateLayout, isGeneratingLayout, generationError } = props;
   const {
     baseUrl,
     apiKey,
@@ -74,7 +80,10 @@ export const AiWorkshopAssistant: React.FC<AiWorkshopAssistantProps> = (props) =
         <AiAnalysisResultPanel
           result={analysisResult}
           isAnalyzing={isAnalyzing}
+          isGeneratingLayout={isGeneratingLayout}
+          generationError={generationError}
           onAppendOptionToPrompt={(option) => setPrompt(prompt ? `${prompt} ${option}` : option)}
+          onGenerateLayout={onGenerateLayout}
         />
       </div>
     </div>

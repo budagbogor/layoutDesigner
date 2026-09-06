@@ -21,12 +21,18 @@ export interface AiAnalysisResultPanelProps {
   readonly result: AIParseResult | null;
   readonly isAnalyzing: boolean;
   readonly onAppendOptionToPrompt?: (text: string) => void;
+  readonly onGenerateLayout?: (requirement: WorkshopLayoutRequirement) => void;
+  readonly isGeneratingLayout?: boolean;
+  readonly generationError?: string | null;
 }
 
 export const AiAnalysisResultPanel: React.FC<AiAnalysisResultPanelProps> = ({
   result,
   isAnalyzing,
   onAppendOptionToPrompt,
+  onGenerateLayout,
+  isGeneratingLayout = false,
+  generationError = null,
 }) => {
   return (
     <div className="ai-studio-card" data-testid="ai-analysis-result-panel">
@@ -150,7 +156,7 @@ export const AiAnalysisResultPanel: React.FC<AiAnalysisResultPanelProps> = ({
             {/* Render Semantic Requirements */}
             <SemanticRequirementView req={result.requirement} />
 
-            {/* Next Step Guidance */}
+            {/* Next Step Guidance & Action */}
             <div
               style={{
                 background: 'rgba(35, 134, 54, 0.1)',
@@ -166,8 +172,59 @@ export const AiAnalysisResultPanel: React.FC<AiAnalysisResultPanelProps> = ({
             >
               <span>✅</span>
               <span>
-                <strong>Spesifikasi Kebutuhan Lengkap & Valid:</strong> Kontrak semantik siap diterjemahkan ke engine input layout pada fase berikutnya.
+                <strong>Spesifikasi Kebutuhan Lengkap & Valid:</strong> Kontrak semantik siap diterjemahkan ke engine input layout deterministik.
               </span>
+            </div>
+
+            {/* Generate CAD Layout Action Button */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <button
+                type="button"
+                data-testid="btn-generate-cad-layout"
+                onClick={() => onGenerateLayout?.(result.requirement)}
+                disabled={isGeneratingLayout}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: 'linear-gradient(135deg, #00d2ff 0%, #2f81f7 100%)',
+                  color: '#050a10',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: isGeneratingLayout ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(0, 210, 255, 0.25)',
+                  opacity: isGeneratingLayout ? 0.7 : 1,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <span>{isGeneratingLayout ? '⚙️' : '📐'}</span>
+                <span>
+                  {isGeneratingLayout
+                    ? 'Sedang Mengkalkulasi & Mengoptimasi Layout CAD...'
+                    : 'Buat Layout CAD (Generate Layout)'}
+                </span>
+              </button>
+
+              {generationError && (
+                <div
+                  data-testid="layout-generation-error"
+                  style={{
+                    background: 'rgba(248, 81, 73, 0.1)',
+                    border: '1px solid rgba(248, 81, 73, 0.35)',
+                    borderRadius: '6px',
+                    padding: '10px 12px',
+                    fontSize: '12px',
+                    color: '#ff7b72',
+                  }}
+                >
+                  <strong>Gagal Menghasilkan Layout:</strong> {generationError}
+                </div>
+              )}
             </div>
           </div>
         )}
