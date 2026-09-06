@@ -21,7 +21,7 @@ import {
 import { ProjectManagerModal } from '../modals/ProjectManagerModal';
 import { CadCanvas } from '../canvas/CadCanvas';
 import { CadToolbar } from '../toolbar/CadToolbar';
-import { PropertiesPanel } from '../panels/PropertiesPanel';
+import { PropertiesPanel, SiteBuildingInspector } from '../panels/PropertiesPanel';
 import { LayersPanel } from '../panels/LayersPanel';
 import { ValidationPanel } from '../panels/ValidationPanel';
 import { AlternativeLayoutPanel } from '../panels/AlternativeLayoutPanel';
@@ -35,7 +35,7 @@ export interface CadWorkspaceProps {
   projectRepository?: IProjectRepository;
 }
 
-export type SidebarTab = 'alternatives' | 'properties' | 'layers' | 'validation';
+export type SidebarTab = 'alternatives' | 'site_building' | 'properties' | 'layers' | 'validation';
 
 export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
   initialProject,
@@ -727,6 +727,30 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
           </div>
 
           <button
+            onClick={() => {
+              store.clearSelection();
+              setActiveTab('site_building');
+            }}
+            data-testid="btn-open-site-building"
+            title="Open Site & Building Parameter Inspector"
+            style={{
+              background: activeTab === 'site_building' ? 'rgba(0, 210, 255, 0.15)' : 'var(--bg-panel)',
+              border: `1px solid ${activeTab === 'site_building' ? 'var(--accent-cyan)' : 'var(--border-color)'}`,
+              color: activeTab === 'site_building' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              borderRadius: '4px',
+              padding: '4px 9px',
+              fontSize: '11px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <span>🏢</span>
+            <span>Site/Building</span>
+          </button>
+
+          <button
             onClick={handleResetView}
             title="Reset Pan and Zoom to Fit Building"
             style={{
@@ -806,6 +830,26 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             </button>
 
             <button
+              onClick={() => {
+                store.clearSelection();
+                setActiveTab('site_building');
+              }}
+              data-testid="tab-site-building"
+              style={{
+                flex: 1,
+                background: activeTab === 'site_building' ? 'var(--bg-panel)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'site_building' ? '2px solid var(--accent-cyan)' : 'none',
+                color: activeTab === 'site_building' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Site/Bldg
+            </button>
+
+            <button
               onClick={() => setActiveTab('properties')}
               data-testid="tab-properties"
               style={{
@@ -882,6 +926,15 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                 layoutEngineResult={layoutEngineResult}
                 activeCandidateId={currentCandidateId}
                 onSelectCandidate={handleSelectCandidate}
+              />
+            )}
+
+            {activeTab === 'site_building' && (
+              <SiteBuildingInspector
+                building={project.building}
+                site={project.site}
+                onUpdateBuilding={(dim) => store.updateBuilding(dim)}
+                onUpdateSite={(dim) => store.updateSite(dim)}
               />
             )}
 

@@ -10,6 +10,7 @@ import {
 import { roundMillimeter } from '@/domain/geometry/precision';
 import { normalizeAngle, getGeometryAABB } from '@/domain/geometry/primitives';
 import { STANDARD_CAD_LAYERS } from '@/application/state/CadStore';
+import { parseDecimalInput } from '@/presentation/utils/decimalParser';
 
 interface PropertiesPanelProps {
   selectedObject: LayoutObject | null;
@@ -71,8 +72,8 @@ export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
   const bcr = siteArea > 0 ? ((bldgArea / siteArea) * 100).toFixed(1) : '0.0';
 
   const commitSiteChange = (field: 'width' | 'length', valStr: string) => {
-    const num = parseFloat(valStr);
-    if (isNaN(num) || !isFinite(num) || num <= 0) {
+    const num = parseDecimalInput(valStr);
+    if (num === null || num <= 0) {
       setDimError('Site dimensions must be a valid number greater than 0 meters.');
       if (field === 'width') setSiteWidthInput(site.width.toString());
       if (field === 'length') setSiteLengthInput(site.length.toString());
@@ -83,8 +84,8 @@ export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
   };
 
   const commitBldgChange = (field: 'width' | 'length', valStr: string) => {
-    const num = parseFloat(valStr);
-    if (isNaN(num) || !isFinite(num) || num <= 0) {
+    const num = parseDecimalInput(valStr);
+    if (num === null || num <= 0) {
       setDimError('Building dimensions must be a valid number greater than 0 meters.');
       if (field === 'width') setBldgWidthInput(building.width.toString());
       if (field === 'length') setBldgLengthInput(building.length.toString());
@@ -158,9 +159,8 @@ export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
               Width (m)
             </label>
             <input
-              type="number"
-              step="0.5"
-              min="1"
+              type="text"
+              inputMode="decimal"
               value={bldgWidthInput}
               onChange={(e) => setBldgWidthInput(e.target.value)}
               onBlur={(e) => commitBldgChange('width', e.target.value)}
@@ -189,9 +189,8 @@ export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
               Length (m)
             </label>
             <input
-              type="number"
-              step="0.5"
-              min="1"
+              type="text"
+              inputMode="decimal"
               value={bldgLengthInput}
               onChange={(e) => setBldgLengthInput(e.target.value)}
               onBlur={(e) => commitBldgChange('length', e.target.value)}
@@ -244,9 +243,8 @@ export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
               Width (m)
             </label>
             <input
-              type="number"
-              step="0.5"
-              min="1"
+              type="text"
+              inputMode="decimal"
               value={siteWidthInput}
               onChange={(e) => setSiteWidthInput(e.target.value)}
               onBlur={(e) => commitSiteChange('width', e.target.value)}
@@ -275,9 +273,8 @@ export const SiteBuildingInspector: React.FC<SiteBuildingInspectorProps> = ({
               Length (m)
             </label>
             <input
-              type="number"
-              step="0.5"
-              min="1"
+              type="text"
+              inputMode="decimal"
               value={siteLengthInput}
               onChange={(e) => setSiteLengthInput(e.target.value)}
               onBlur={(e) => commitSiteChange('length', e.target.value)}
@@ -336,8 +333,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const aabb = getGeometryAABB(geometry);
 
   const handleNumberChange = (field: keyof Geometry, valueStr: string) => {
-    const val = parseFloat(valueStr);
-    if (isNaN(val)) return;
+    const val = parseDecimalInput(valueStr);
+    if (val === null) return;
 
     if (field === 'rotation') {
       onUpdateGeometry(id, { rotation: normalizeAngle(roundMillimeter(val)) });
@@ -451,11 +448,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               X (m)
             </label>
             <input
-              type="number"
-              step="0.1"
+              type="text"
+              inputMode="decimal"
               data-testid="prop-input-x"
-              value={geometry.x}
-              onChange={(e) => handleNumberChange('x', e.target.value)}
+              defaultValue={geometry.x}
+              key={`x-${id}-${geometry.x}`}
               onKeyDown={(e) => handleKeyDown(e, 'x')}
               onBlur={(e) => handleNumberChange('x', e.target.value)}
               style={{
@@ -477,11 +474,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               Y (m)
             </label>
             <input
-              type="number"
-              step="0.1"
+              type="text"
+              inputMode="decimal"
               data-testid="prop-input-y"
-              value={geometry.y}
-              onChange={(e) => handleNumberChange('y', e.target.value)}
+              defaultValue={geometry.y}
+              key={`y-${id}-${geometry.y}`}
               onKeyDown={(e) => handleKeyDown(e, 'y')}
               onBlur={(e) => handleNumberChange('y', e.target.value)}
               style={{
@@ -503,12 +500,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               Width (m)
             </label>
             <input
-              type="number"
-              step="0.1"
-              min="0.1"
+              type="text"
+              inputMode="decimal"
               data-testid="prop-input-width"
-              value={geometry.width}
-              onChange={(e) => handleNumberChange('width', e.target.value)}
+              defaultValue={geometry.width}
+              key={`w-${id}-${geometry.width}`}
               onKeyDown={(e) => handleKeyDown(e, 'width')}
               onBlur={(e) => handleNumberChange('width', e.target.value)}
               style={{
@@ -530,12 +526,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               Length (m)
             </label>
             <input
-              type="number"
-              step="0.1"
-              min="0.1"
+              type="text"
+              inputMode="decimal"
               data-testid="prop-input-length"
-              value={geometry.length}
-              onChange={(e) => handleNumberChange('length', e.target.value)}
+              defaultValue={geometry.length}
+              key={`l-${id}-${geometry.length}`}
               onKeyDown={(e) => handleKeyDown(e, 'length')}
               onBlur={(e) => handleNumberChange('length', e.target.value)}
               style={{
@@ -557,11 +552,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               Rotation (Degrees 0..360°)
             </label>
             <input
-              type="number"
-              step="1"
+              type="text"
+              inputMode="decimal"
               data-testid="prop-input-rotation"
-              value={geometry.rotation}
-              onChange={(e) => handleNumberChange('rotation', e.target.value)}
+              defaultValue={geometry.rotation}
+              key={`r-${id}-${geometry.rotation}`}
               onKeyDown={(e) => handleKeyDown(e, 'rotation')}
               onBlur={(e) => handleNumberChange('rotation', e.target.value)}
               style={{
