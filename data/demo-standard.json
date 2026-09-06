@@ -7,7 +7,7 @@
   "parameters": [
     { "key": "building.wall_thickness", "value": 0.15, "unit": "meter", "constraint_level": "HARD" },
     { "key": "bay.min_width", "value": 4.0, "unit": "meter", "constraint_level": "HARD" },
-    { "key": "bay.min_length", "value": 7.0, "unit": "meter", "constraint_level": "HARD" },
+    { "key": "bay.min_length", "value": 9.0, "unit": "meter", "constraint_level": "HARD" },
     { "key": "circulation.drive_aisle.min_width", "value": 6.0, "unit": "meter", "constraint_level": "HARD" },
     { "key": "circulation.bay_approach_depth", "value": 3.5, "unit": "meter", "constraint_level": "HARD" },
     { "key": "clearance.working_buffer", "value": 0.5, "unit": "meter", "constraint_level": "HARD" },

@@ -19,6 +19,8 @@ import {
   VehicleCategory,
   BusinessPriority,
   ServiceProgramItem,
+  getCanonicalBayTypeForService,
+  MOBENG_BAY_DEFAULT_LIFTS,
 } from '../../domain/requirements/requirementTypes';
 
 import {
@@ -224,10 +226,10 @@ export class RequirementMapper {
     const equipmentMap = new Map<string, number>();
 
     // Collect lifts from service requirements
-    for (const svc of requirement.services) {
-      if (svc.requiredLifts) {
-        for (const lift of svc.requiredLifts) {
-          equipmentMap.set(lift, (equipmentMap.get(lift) || 0) + svc.bayCount);
+    for (const bay of bays) {
+      if (bay.requiredEquipment) {
+        for (const lift of bay.requiredEquipment) {
+          equipmentMap.set(lift, (equipmentMap.get(lift) || 0) + bay.quantity);
         }
       }
     }

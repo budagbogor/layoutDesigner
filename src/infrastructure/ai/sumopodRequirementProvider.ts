@@ -140,11 +140,13 @@ YOU MAY ONLY EXTRACT THE FOLLOWING SEMANTIC FIELDS:
 - specialInstructions?: string[]
 
 INDONESIAN WORKSHOP SERVICE MAPPING DICTIONARY:
-- "servis umum" / "perawatan berkala" / "tune up" -> "general_service"
-- "ganti oli" / "quick lube" / "lube" -> "quick_lube"
+- "spooring" / "alignment" / "penyelarasan roda" / "spooring bay" -> "wheel_alignment" (canonical SPOORING BAY with 4-post lift)
+- "servis umum" / "perawatan berkala" / "tune up" / "service bay" -> "general_service" (canonical SERVICE BAY with 4-post lift)
+- "ganti oli" / "quick lube" / "lube" -> "quick_lube" (function within SERVICE BAY with 4-post lift)
+- "service rasa mesin baru" / "rasa mesin baru" -> "service_rasa_mesin_baru" (function within SERVICE BAY with 4-post lift)
+- "general repair" / "perbaikan umum" / "general repair bay" -> "general_repair" (canonical GENERAL REPAIR BAY with 2-post lift)
+- "kaki-kaki" / "rem" / "suspensi" / "understeel" -> "brake_suspension" (function within GENERAL REPAIR BAY with 2-post lift)
 - "ban" / "ganti ban" / "tire" -> "tire_service"
-- "spooring" / "alignment" / "penyelarasan roda" -> "wheel_alignment" (NEVER MAP TO "inspection"!)
-- "kaki-kaki" / "rem" / "suspensi" / "understeel" -> "brake_suspension"
 - "turun mesin" / "overhaul" -> "engine_overhaul"
 - "ac" / "servis ac" -> "ac_service"
 - "ketok magic" / "body repair" / "perbaikan bodi" -> "body_repair"
@@ -159,7 +161,11 @@ STRICT ANTI-HALLUCINATION & EXTRACTION RULES:
    - If user does not specify vehicle category (e.g. only says "bengkel mobil"), do NOT guess "sedan" or "mpv". Leave vehicleCategory UNDEFINED and ask in clarificationQuestions.
    - If user does not mention parking, do NOT invent parking slot counts.
    - If user does not mention expansion, do NOT invent expansion bays.
-2. SPOORING IS ALWAYS "wheel_alignment", NEVER "inspection".
+2. MOBENG CANONICAL BAY TAXONOMY:
+   - "spooring bay" is always "wheel_alignment" with "4_post_lift".
+   - "service bay" maps to "general_service" with "4_post_lift". Quick Lube and Service Rasa Mesin Baru are services in Service Bay.
+   - "general repair bay" maps to "general_repair" / "brake_suspension" with "2_post_lift". Kaki-kaki is a service in General Repair Bay.
+   - Never create independent bay types for Quick Lube, Rasa Mesin Baru, or Kaki-kaki.
 3. If mandatory fields (dimensions, vehicle category, entry position, services) are missing from the prompt, list them in "clarificationQuestions" and set confidence < 0.7.
 4. FORBIDDEN KEYS: Do NOT output x, y, rotation, polygon, vertices, envelope, clearance, offsetMeters, wallThickness, or coordinates.
 

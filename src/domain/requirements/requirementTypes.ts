@@ -105,6 +105,8 @@ export interface AccessRequirement {
 export type ServiceType =
   | 'general_service'
   | 'quick_lube'
+  | 'service_rasa_mesin_baru'
+  | 'general_repair'
   | 'tire_service'
   | 'wheel_alignment'
   | 'brake_suspension'
@@ -124,9 +126,64 @@ export type LiftType =
   | 'pit'
   | 'motorcycle_lift';
 
+/**
+ * Official MOBENG Canonical Bay Types (Exactly 3 canonical bay types).
+ * Quick Lube, Rasa Mesin Baru, and Kaki-kaki are services/functions, NOT bay types.
+ */
+export type MobengBayType = 'SPOORING_BAY' | 'SERVICE_BAY' | 'GENERAL_REPAIR_BAY';
+
+/**
+ * Supported functions / services per MOBENG canonical bay type.
+ */
+export const MOBENG_BAY_SERVICES: Record<MobengBayType, readonly ServiceType[]> = Object.freeze({
+  SPOORING_BAY: Object.freeze(['wheel_alignment' as ServiceType]),
+  SERVICE_BAY: Object.freeze(['general_service' as ServiceType, 'quick_lube' as ServiceType, 'service_rasa_mesin_baru' as ServiceType]),
+  GENERAL_REPAIR_BAY: Object.freeze(['general_repair' as ServiceType, 'brake_suspension' as ServiceType]),
+});
+
+/**
+ * Standard lift equipment per MOBENG canonical bay type.
+ */
+export const MOBENG_BAY_DEFAULT_LIFTS: Record<MobengBayType, LiftType> = Object.freeze({
+  SPOORING_BAY: '4_post_lift',
+  SERVICE_BAY: '4_post_lift',
+  GENERAL_REPAIR_BAY: '2_post_lift',
+});
+
+/**
+ * Maps a service/function to its canonical MOBENG bay type.
+ * Quick Lube & Service Rasa Mesin Baru map to SERVICE_BAY.
+ * Kaki-kaki & General Repair map to GENERAL_REPAIR_BAY.
+ * Spooring / Wheel Alignment maps to SPOORING_BAY.
+ */
+export function getCanonicalBayTypeForService(serviceType: ServiceType | string): MobengBayType {
+  switch (serviceType) {
+    case 'wheel_alignment':
+    case 'SPOORING_BAY':
+      return 'SPOORING_BAY';
+    case 'general_repair':
+    case 'brake_suspension':
+    case 'GENERAL_REPAIR_BAY':
+      return 'GENERAL_REPAIR_BAY';
+    case 'general_service':
+    case 'quick_lube':
+    case 'service_rasa_mesin_baru':
+    case 'SERVICE_BAY':
+    default:
+      return 'SERVICE_BAY';
+  }
+}
+
 export interface ServiceProgramItem {
   readonly serviceType: ServiceType;
   readonly bayCount: number;
+  readonly requiredLifts?: readonly LiftType[];
+}
+
+export interface BayProgramItem {
+  readonly bayType: MobengBayType;
+  readonly bayCount: number;
+  readonly supportedServices?: readonly ServiceType[];
   readonly requiredLifts?: readonly LiftType[];
 }
 

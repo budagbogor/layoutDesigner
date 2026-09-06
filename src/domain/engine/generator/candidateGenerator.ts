@@ -34,6 +34,7 @@ import { createSafetyEnvelope, hasSafetyRequirement } from '../envelopes/safetyE
 import { roundMillimeter } from '../../geometry/precision';
 import { validateCandidateConstraints, CandidateValidationResult } from './candidateValidator';
 import { overlapsEnvelope } from '../spatial/spatialRelations';
+import { getCanonicalBayTypeForService } from '../../requirements/requirementTypes';
 
 export type SpatialArrangementType =
   | 'SINGLE_COMB_NORTH'
@@ -371,6 +372,7 @@ export class CandidateGenerator {
         metadata: {
           strategy: strategyId,
           arrangement,
+          bayType: getCanonicalBayTypeForService(bayItem.serviceType),
           serviceType: bayItem.serviceType,
           requiredEquipment: bayItem.requiredEquipment,
           row: placedInRow,
