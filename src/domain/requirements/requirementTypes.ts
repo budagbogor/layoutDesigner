@@ -188,10 +188,86 @@ export interface BayProgramItem {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Ancillary Spaces (Non-Service Functional Areas)
+// 5. Ancillary Spaces & Extended MOBENG Space Program (M2A)
 // ---------------------------------------------------------------------------
 
+/** Stable semantic identifiers for MOBENG spaces */
+export type MobengSpaceType =
+  | 'customer_lounge'
+  | 'reception_cashier'
+  | 'customer_restroom'
+  | 'mushola'
+  | 'wudhu'
+  | 'spooring_bay'
+  | 'service_bay'
+  | 'general_repair_bay'
+  | 'operational_equipment'
+  | 'parts_warehouse'
+  | 'employee_mess'
+  | 'employee_restroom'
+  | 'employee_motorcycle_parking'
+  | 'waste_oil'
+  | 'waste_tire'
+  | 'waste_parts'
+  | 'waste_cardboard'
+  | 'compressor_room';
+
+/** Waste stream categories for MOBENG 4-stream hazardous and operational waste */
+export type MobengWasteCategory =
+  | 'waste_oil'
+  | 'waste_tire'
+  | 'waste_parts'
+  | 'waste_cardboard';
+
+/** Structured content & functional requirements for Customer Waiting Area / Lounge */
+export interface WaitingAreaContentRequirement {
+  readonly targetCapacityMin?: number; // e.g. 10 persons
+  readonly targetCapacityMax?: number; // e.g. 20 persons
+  readonly seatingRequired?: boolean;
+  readonly tvRequired?: boolean;
+  readonly credenzaRequired?: boolean;
+  readonly showcaseRequired?: boolean;
+  readonly combinedReceptionCashier?: boolean;
+}
+
+/** Structured requirement for Mini Mushola (Design Reference ~2m x 2m) */
+export interface MusholaRequirement {
+  readonly enabled: boolean;
+  readonly minCapacityAdults?: number; // minimum 1 adult
+  readonly targetCapacityMax?: number; // target 1-4 persons
+  readonly isCompact?: boolean;
+  /** Design reference provenance only (~2.0m x 2.0m); NOT a building code or engineering standard */
+  readonly designReferenceWidthMeters?: number;
+  readonly designReferenceLengthMeters?: number;
+}
+
+/** Structured requirement for Wudhu Ablution Area (Compact, min 1 pax & 1 faucet, dimensions UNKNOWN) */
+export interface WudhuRequirement {
+  readonly enabled: boolean;
+  readonly minCapacity?: number; // minimum 1 person
+  readonly minFaucetCount?: number; // minimum 1 faucet
+  readonly isCompact?: boolean;
+  // Physical dimensions remain explicitly UNKNOWN
+}
+
+/** Structured requirement for Employee Mess (Sleeping/rest for min 4 staff, dimensions UNKNOWN) */
+export interface EmployeeMessRequirement {
+  readonly enabled: boolean;
+  readonly minSleepingCapacity?: number; // minimum 4 persons
+  readonly functionType?: 'sleeping_rest' | 'casual_lounge'; // default 'sleeping_rest'
+  // Physical dimensions remain explicitly UNKNOWN
+}
+
+/** Structured requirement for 4-Stream Waste Program (Compact, dimensions UNKNOWN) */
+export interface WasteStreamRequirement {
+  readonly oil: boolean;
+  readonly tire: boolean;
+  readonly parts: boolean;
+  readonly cardboard: boolean;
+}
+
 export interface AncillarySpacesRequirement {
+  // Legacy / Baseline fields (Preserved 100% for backward compatibility)
   readonly customerLounge: boolean;
   readonly cashierOffice: boolean;
   readonly partsWarehouse: boolean;
@@ -201,6 +277,24 @@ export interface AncillarySpacesRequirement {
   readonly staffRoom?: boolean;
   /** Customer lounge has glass wall with direct view into service bays. */
   readonly loungeWithBayView?: boolean;
+
+  // Extended MOBENG Space Program (M2A Semantic Foundation)
+  /** Dedicated Customer Restroom (separate from employee restroom) */
+  readonly customerRestroom?: boolean;
+  /** Dedicated Employee Restroom (separate from customer restroom) */
+  readonly employeeRestroom?: boolean;
+  /** Mini Mushola prayer space */
+  readonly mushola?: boolean | MusholaRequirement;
+  /** Wudhu ablution facility */
+  readonly wudhu?: boolean | WudhuRequirement;
+  /** Employee Mess (sleeping/rest facility for staff) */
+  readonly employeeMess?: boolean | EmployeeMessRequirement;
+  /** Detailed Waiting Area interior content specification */
+  readonly waitingAreaDetails?: WaitingAreaContentRequirement;
+  /** 4-stream waste management program (oil, tire, parts, cardboard) */
+  readonly wasteStreams?: WasteStreamRequirement;
+  /** Dedicated employee motorcycle parking presence */
+  readonly employeeMotorcycleParking?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +305,7 @@ export interface ParkingRequirement {
   readonly customerParkingSpaces?: number;
   readonly staffParkingSpaces?: number;
   readonly vehicleStagingSpaces?: number;
+  readonly employeeMotorcycleSpaces?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +360,7 @@ export interface RequirementValidationResult {
  * Validates that a WorkshopLayoutRequirement has the minimum fields needed
  * for the RequirementMapper to produce a valid LayoutEngineInput.
  *
- * This does NOT fill in defaults. It only reports what is missing.
+ * This does NOT fill in defaults. It only reports what is missing or invalid.
  */
 export function validateRequirement(req: WorkshopLayoutRequirement): RequirementValidationResult {
   const missingFields: string[] = [];
@@ -337,6 +432,74 @@ export function validateRequirement(req: WorkshopLayoutRequirement): Requirement
   // Ancillary spaces
   if (!req.ancillarySpaces) {
     missingFields.push('ancillarySpaces');
+  } else {
+    const anc = req.ancillarySpaces;
+
+    // Semantic validation: Waiting area capacity
+    if (anc.waitingAreaDetails) {
+      const { targetCapacityMin, targetCapacityMax } = anc.waitingAreaDetails;
+      if (targetCapacityMin !== undefined && targetCapacityMin <= 0) {
+        missingFields.push('ancillarySpaces.waitingAreaDetails.targetCapacityMin must be > 0');
+      }
+      if (targetCapacityMax !== undefined && targetCapacityMax <= 0) {
+        missingFields.push('ancillarySpaces.waitingAreaDetails.targetCapacityMax must be > 0');
+      }
+      if (
+        targetCapacityMin !== undefined &&
+        targetCapacityMax !== undefined &&
+        targetCapacityMax < targetCapacityMin
+      ) {
+        warnings.push('waitingAreaDetails.targetCapacityMax is less than targetCapacityMin');
+      }
+    }
+
+    // Semantic validation: Mushola capacity & design reference
+    if (typeof anc.mushola === 'object' && anc.mushola.enabled) {
+      if (anc.mushola.minCapacityAdults !== undefined && anc.mushola.minCapacityAdults <= 0) {
+        missingFields.push('ancillarySpaces.mushola.minCapacityAdults must be > 0');
+      }
+      if (anc.mushola.targetCapacityMax !== undefined && anc.mushola.targetCapacityMax <= 0) {
+        missingFields.push('ancillarySpaces.mushola.targetCapacityMax must be > 0');
+      }
+    }
+
+    // Semantic validation: Wudhu capacity & fixture
+    if (typeof anc.wudhu === 'object' && anc.wudhu.enabled) {
+      if (anc.wudhu.minCapacity !== undefined && anc.wudhu.minCapacity <= 0) {
+        missingFields.push('ancillarySpaces.wudhu.minCapacity must be > 0');
+      }
+      if (anc.wudhu.minFaucetCount !== undefined && anc.wudhu.minFaucetCount <= 0) {
+        missingFields.push('ancillarySpaces.wudhu.minFaucetCount must be > 0');
+      }
+    }
+
+    // Semantic validation: Employee Mess capacity
+    if (typeof anc.employeeMess === 'object' && anc.employeeMess.enabled) {
+      if (anc.employeeMess.minSleepingCapacity !== undefined && anc.employeeMess.minSleepingCapacity <= 0) {
+        missingFields.push('ancillarySpaces.employeeMess.minSleepingCapacity must be > 0');
+      }
+    }
+
+    // Sanitary separation notice
+    if (anc.restroom && (anc.customerRestroom || anc.employeeRestroom)) {
+      warnings.push('Both general restroom and specific (customer/employee) restroom are marked; specific configuration takes precedence');
+    }
+  }
+
+  // Parking validation
+  if (req.parking) {
+    if (req.parking.customerParkingSpaces !== undefined && req.parking.customerParkingSpaces < 0) {
+      missingFields.push('parking.customerParkingSpaces cannot be negative');
+    }
+    if (req.parking.staffParkingSpaces !== undefined && req.parking.staffParkingSpaces < 0) {
+      missingFields.push('parking.staffParkingSpaces cannot be negative');
+    }
+    if (req.parking.vehicleStagingSpaces !== undefined && req.parking.vehicleStagingSpaces < 0) {
+      missingFields.push('parking.vehicleStagingSpaces cannot be negative');
+    }
+    if (req.parking.employeeMotorcycleSpaces !== undefined && req.parking.employeeMotorcycleSpaces < 0) {
+      missingFields.push('parking.employeeMotorcycleSpaces cannot be negative');
+    }
   }
 
   // Warnings for semantically questionable but not strictly invalid input
@@ -354,3 +517,197 @@ export function validateRequirement(req: WorkshopLayoutRequirement): Requirement
     warnings: Object.freeze(warnings),
   });
 }
+
+// ---------------------------------------------------------------------------
+// 9. MOBENG Space Standard V1 (PO-Approved Constants & Specifications)
+// ---------------------------------------------------------------------------
+
+export type MobengProvenance =
+  | 'PO_APPROVED'
+  | 'DESIGN_REFERENCE'
+  | 'EXISTING_REPOSITORY_VALUE_PENDING_APPROVAL'
+  | 'UNKNOWN';
+
+/**
+ * Official MOBENG 8 Operational Equipment Items.
+ */
+export const MOBENG_OPERATIONAL_EQUIPMENT_LIST: readonly string[] = Object.freeze([
+  'Mesin spooring',
+  'Mesin balancing',
+  'Tire changer',
+  'ATF flushing machine',
+  'Nitrogen tire inflator',
+  'Oil drain & suction',
+  'Air compressor',
+  'Genset 10 kVA',
+]);
+
+/**
+ * PO-Approved Equipment Electrical Phase Requirements.
+ * Nitrogen electrical requirement remains explicitly UNKNOWN.
+ */
+export interface EquipmentElectricalSpec {
+  readonly phaseCount?: number; // 1 or 3, undefined if UNKNOWN
+  readonly provenance: MobengProvenance;
+}
+
+export const MOBENG_EQUIPMENT_ELECTRICAL_PHASES: Readonly<Record<string, EquipmentElectricalSpec>> = Object.freeze({
+  'Mesin spooring': Object.freeze({ phaseCount: 1, provenance: 'PO_APPROVED' as MobengProvenance }),
+  'Mesin balancing': Object.freeze({ phaseCount: 3, provenance: 'PO_APPROVED' as MobengProvenance }),
+  'Tire changer': Object.freeze({ phaseCount: 3, provenance: 'PO_APPROVED' as MobengProvenance }),
+  'Vehicle lift': Object.freeze({ phaseCount: 3, provenance: 'PO_APPROVED' as MobengProvenance }),
+  'Nitrogen tire inflator': Object.freeze({ phaseCount: undefined, provenance: 'UNKNOWN' as MobengProvenance }),
+});
+
+/**
+ * Equipment Brand / Vendor References.
+ * Text preferences only; NOT physical equipment specifications.
+ * Note: Exact spelling "JPHN Bean" is strictly preserved as supplied by PO.
+ */
+export const MOBENG_EQUIPMENT_VENDOR_REFERENCES: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  'Mesin spooring': Object.freeze(['Blue Point / Snap-on', 'John Bean', 'JPHN Bean']),
+  'Mesin balancing': Object.freeze(['John Bean']),
+  'Tire changer': Object.freeze(['Smart']),
+  'Nitrogen tire inflator': Object.freeze(['brand unrestricted / free choice']),
+});
+
+/**
+ * Canonical MOBENG Space Standard V1 Data Specifications.
+ */
+export const MOBENG_SPACE_STANDARD_V1 = Object.freeze({
+  // Canonical Bays
+  BAY_SPOORING: Object.freeze({
+    widthMeters: 4.0,
+    lengthMeters: 9.0,
+    liftType: '4_post_lift' as LiftType,
+    maxLifts: 1,
+    services: Object.freeze(['wheel_alignment' as ServiceType]),
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+  BAY_SERVICE: Object.freeze({
+    widthMeters: 4.0,
+    lengthMeters: 9.0,
+    liftType: '4_post_lift' as LiftType,
+    allowMultipleLifts: true,
+    services: Object.freeze(['general_service' as ServiceType, 'quick_lube' as ServiceType, 'service_rasa_mesin_baru' as ServiceType]),
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+  BAY_GENERAL_REPAIR: Object.freeze({
+    widthMeters: 4.0,
+    lengthMeters: 9.0,
+    liftType: '2_post_lift' as LiftType,
+    maxLifts: 1,
+    services: Object.freeze(['general_repair' as ServiceType, 'brake_suspension' as ServiceType]),
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Customer Parking
+  CUSTOMER_PARKING_STALL: Object.freeze({
+    widthMeters: 2.5,
+    lengthMeters: 5.0,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Integrated Waiting + Reception + Cashier
+  WAITING_RECEPTION_CASHIER: Object.freeze({
+    minWidthMeters: 5.0,
+    minLengthMeters: 6.0,
+    idealWidthMeters: 5.0,
+    idealLengthMeters: 10.0,
+    minCapacityPax: 10,
+    maxCapacityPax: 20,
+    cashierSubareaWidthMeters: 2.5,
+    cashierSubareaLengthMeters: 2.5,
+    isExpandable: true,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Sparepart Warehouse
+  PARTS_WAREHOUSE: Object.freeze({
+    minWidthMeters: 4.0,
+    minLengthMeters: 6.0,
+    isExpandable: true,
+    supersededDimensions: '4.5m x 4.0m',
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // 4-Stream Waste Area
+  WASTE_AREA: Object.freeze({
+    totalWidthMeters: 3.0,
+    totalLengthMeters: 6.0,
+    streams: Object.freeze({
+      oil: Object.freeze({ widthMeters: 3.0, lengthMeters: 2.0, category: 'waste_oil' as MobengWasteCategory, provenance: 'PO_APPROVED' as MobengProvenance }),
+      tire: Object.freeze({ widthMeters: 3.0, lengthMeters: 2.0, category: 'waste_tire' as MobengWasteCategory, provenance: 'PO_APPROVED' as MobengProvenance }),
+      parts: Object.freeze({ widthMeters: 3.0, lengthMeters: 1.0, category: 'waste_parts' as MobengWasteCategory, provenance: 'PO_APPROVED' as MobengProvenance }),
+      cardboard: Object.freeze({ widthMeters: 3.0, lengthMeters: 1.0, category: 'waste_cardboard' as MobengWasteCategory, provenance: 'PO_APPROVED' as MobengProvenance }),
+    }),
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Mini Mushola
+  MUSHOLA: Object.freeze({
+    minWidthMeters: 2.0,
+    minLengthMeters: 2.0,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Wudhu
+  WUDHU: Object.freeze({
+    minWidthMeters: 1.0,
+    minLengthMeters: 2.0,
+    minFaucetCount: 1,
+    mandatoryAdjacencyToMushola: true,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Customer Toilet & Employee Toilet
+  CUSTOMER_TOILET: Object.freeze({
+    minWidthMeters: 1.5,
+    minLengthMeters: 1.5,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+  EMPLOYEE_TOILET: Object.freeze({
+    minWidthMeters: 1.5,
+    minLengthMeters: 1.5,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Employee Mess
+  EMPLOYEE_MESS: Object.freeze({
+    minWidthMeters: 3.0,
+    minLengthMeters: 6.0,
+    functionType: 'sleeping_rest',
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Employee Motorcycle Parking
+  EMPLOYEE_MOTORCYCLE_PARKING: Object.freeze({
+    minCapacityUnits: 4,
+    stallDimensions: undefined,
+    aisleDimensions: undefined,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Genset
+  GENSET: Object.freeze({
+    capacityKva: 10.0,
+    physicalDimensions: undefined,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // Site Guideline
+  SITE_GUIDELINE: Object.freeze({
+    preferredMinWidthMeters: 15.0,
+    preferredMinDepthMeters: 20.0,
+    isHardEngineeringConstraint: false,
+    provenance: 'PO_APPROVED' as MobengProvenance,
+  }),
+
+  // GSB
+  GSB: Object.freeze({
+    numericValue: undefined,
+    isLocationProjectSpecific: true,
+    provenance: 'UNKNOWN' as MobengProvenance,
+  }),
+});
+

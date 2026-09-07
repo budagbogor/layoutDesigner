@@ -145,6 +145,7 @@ export class RequirementMapper {
             customerParkingSpaces: requirement.parking.customerParkingSpaces,
             staffParkingSpaces: requirement.parking.staffParkingSpaces,
             vehicleStagingSpaces: requirement.parking.vehicleStagingSpaces,
+            employeeMotorcycleSpaces: requirement.parking.employeeMotorcycleSpaces,
           })
         : undefined,
     };
@@ -249,15 +250,51 @@ export class RequirementMapper {
 
     // --- 8. Customer Zone & Ancillary Spaces ---
     const customerZoneRequired = requirement.ancillarySpaces.customerLounge;
+
+    const musholaActive = typeof requirement.ancillarySpaces.mushola === 'object'
+      ? requirement.ancillarySpaces.mushola.enabled
+      : Boolean(requirement.ancillarySpaces.mushola);
+
+    const wudhuActive = typeof requirement.ancillarySpaces.wudhu === 'object'
+      ? requirement.ancillarySpaces.wudhu.enabled
+      : Boolean(requirement.ancillarySpaces.wudhu);
+
+    const employeeMessActive = typeof requirement.ancillarySpaces.employeeMess === 'object'
+      ? requirement.ancillarySpaces.employeeMess.enabled
+      : Boolean(requirement.ancillarySpaces.employeeMess);
+
+    const customerRestroomActive = Boolean(requirement.ancillarySpaces.customerRestroom);
+    const employeeRestroomActive = Boolean(requirement.ancillarySpaces.employeeRestroom);
+    const legacyRestroom =
+      Boolean(requirement.ancillarySpaces.restroom) ||
+      customerRestroomActive ||
+      employeeRestroomActive;
+    const legacyStaffRoom =
+      Boolean(requirement.ancillarySpaces.staffRoom) ||
+      employeeMessActive;
+    const legacyOilWaste =
+      Boolean(requirement.ancillarySpaces.oilWasteStorage) ||
+      Boolean(requirement.ancillarySpaces.wasteStreams?.oil);
+
     const ancillarySpaces = Object.freeze({
       customerLounge: requirement.ancillarySpaces.customerLounge,
       cashierOffice: requirement.ancillarySpaces.cashierOffice,
       partsWarehouse: requirement.ancillarySpaces.partsWarehouse,
-      restroom: requirement.ancillarySpaces.restroom,
+      restroom: legacyRestroom,
       compressorRoom: requirement.ancillarySpaces.compressorRoom,
-      oilWasteStorage: requirement.ancillarySpaces.oilWasteStorage,
-      staffRoom: requirement.ancillarySpaces.staffRoom,
+      oilWasteStorage: legacyOilWaste,
+      staffRoom: legacyStaffRoom,
       loungeWithBayView: requirement.ancillarySpaces.loungeWithBayView,
+
+      // Extended MOBENG Space Program (M2A Semantic Presence)
+      customerRestroom: customerRestroomActive,
+      employeeRestroom: employeeRestroomActive,
+      mushola: musholaActive,
+      wudhu: wudhuActive,
+      employeeMess: employeeMessActive,
+      waitingAreaDetails: requirement.ancillarySpaces.waitingAreaDetails,
+      wasteStreams: requirement.ancillarySpaces.wasteStreams,
+      employeeMotorcycleParking: requirement.ancillarySpaces.employeeMotorcycleParking,
     });
 
     // --- 9. Future Expansion ---

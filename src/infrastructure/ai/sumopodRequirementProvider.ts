@@ -126,15 +126,53 @@ YOU MAY ONLY EXTRACT THE FOLLOWING SEMANTIC FIELDS:
     cashierOffice: boolean,
     partsWarehouse: boolean,
     restroom: boolean,
+    customerRestroom?: boolean,
+    employeeRestroom?: boolean,
+    mushola?: boolean | {
+      enabled: boolean,
+      minCapacityAdults?: number,
+      targetCapacityMax?: number,
+      isCompact?: boolean,
+      designReferenceWidthMeters?: number,
+      designReferenceLengthMeters?: number
+    },
+    wudhu?: boolean | {
+      enabled: boolean,
+      minCapacity?: number,
+      minFaucetCount?: number,
+      isCompact?: boolean
+    },
+    employeeMess?: boolean | {
+      enabled: boolean,
+      minSleepingCapacity?: number,
+      functionType?: "sleeping_rest" | "casual_lounge"
+    },
+    waitingAreaDetails?: {
+      targetCapacityMin?: number,
+      targetCapacityMax?: number,
+      seatingRequired?: boolean,
+      tvRequired?: boolean,
+      credenzaRequired?: boolean,
+      showcaseRequired?: boolean,
+      combinedReceptionCashier?: boolean
+    },
+    wasteStreams?: {
+      oil: boolean,
+      tire: boolean,
+      parts: boolean,
+      cardboard: boolean
+    },
     compressorRoom?: boolean,
     oilWasteStorage?: boolean,
     staffRoom?: boolean,
-    loungeWithBayView?: boolean
+    loungeWithBayView?: boolean,
+    employeeMotorcycleParking?: boolean
   }
 - parking?: {
     customerParkingSpaces?: number,
     staffParkingSpaces?: number,
-    vehicleStagingSpaces?: number
+    vehicleStagingSpaces?: number,
+    employeeMotorcycleSpaces?: number
   }
 - futureExpansionBays?: number
 - specialInstructions?: string[]
@@ -155,12 +193,29 @@ INDONESIAN WORKSHOP SERVICE MAPPING DICTIONARY:
 - "salon mobil" / "poles" / "detailing" / "coating" -> "detailing"
 - "kelistrikan" / "audio" / "kabel" -> "electrical"
 
+INDONESIAN WORKSHOP SPACE & FACILITY DICTIONARY:
+- "mushola" / "musholla" / "tempat sholat" / "mini mushola" -> mushola (if user says ~2x2, set designReferenceWidthMeters: 2.0, designReferenceLengthMeters: 2.0; otherwise leave physical dimensions UNKNOWN)
+- "wudhu" / "tempat wudhu" / "keran wudhu" -> wudhu (with minCapacity: 1, minFaucetCount: 1; physical dimensions remain UNKNOWN)
+- "mess" / "mess karyawan" / "tempat tidur teknisi" / "tidur karyawan" -> employeeMess (with minSleepingCapacity: 4, functionType: "sleeping_rest"; physical dimensions remain UNKNOWN)
+- "toilet customer" / "toilet tamu" / "toilet pelanggan" -> customerRestroom: true
+- "toilet karyawan" / "toilet staf" / "toilet teknisi" -> employeeRestroom: true
+- "toilet terpisah" / "toilet customer dan toilet karyawan terpisah" -> customerRestroom: true, employeeRestroom: true
+- "limbah oli" / "oli bekas" -> wasteStreams.oil: true
+- "limbah ban" / "ban bekas" -> wasteStreams.tire: true
+- "limbah part" / "part bekas" / "onderdil bekas" -> wasteStreams.parts: true
+- "limbah kardus" / "kardus bekas" / "karton" -> wasteStreams.cardboard: true
+- "limbah oli, ban, part dan kardus" -> wasteStreams: { oil: true, tire: true, parts: true, cardboard: true }
+- "ruang tunggu untuk 10 sampai 20 orang" / "kapasitas 10-20" -> waitingAreaDetails: { targetCapacityMin: 10, targetCapacityMax: 20 }
+- "ruang tunggu ada tv, sofa/kursi, credenza dan showcase" -> waitingAreaDetails: { seatingRequired: true, tvRequired: true, credenzaRequired: true, showcaseRequired: true, combinedReceptionCashier: true }
+- "parkir motor" / "parkir motor karyawan" / "parkir roda dua" -> parking.employeeMotorcycleSpaces or employeeMotorcycleParking: true
+
 STRICT ANTI-HALLUCINATION & EXTRACTION RULES:
 1. UNKNOWN MUST REMAIN UNKNOWN. If the user did not explicitly state information, DO NOT invent, assume, or default it.
    - If user only mentions entry (e.g. "masuk dari depan tengah"), leave exitPosition and preferDriveThrough OMITTED/UNDEFINED. Do NOT assume back-out, one-way, rear exit, or drive-through.
    - If user does not specify vehicle category (e.g. only says "bengkel mobil"), do NOT guess "sedan" or "mpv". Leave vehicleCategory UNDEFINED and ask in clarificationQuestions.
    - If user does not mention parking, do NOT invent parking slot counts.
    - If user does not mention expansion, do NOT invent expansion bays.
+   - Do NOT invent physical dimensions for wudhu, mess, waste, motorcycle parking, or furniture.
 2. MOBENG CANONICAL BAY TAXONOMY:
    - "spooring bay" is always "wheel_alignment" with "4_post_lift".
    - "service bay" maps to "general_service" with "4_post_lift". Quick Lube and Service Rasa Mesin Baru are services in Service Bay.

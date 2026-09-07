@@ -27,6 +27,11 @@ export interface ProgramEquipmentRequirement {
   quantity: number;
 }
 
+import {
+  WaitingAreaContentRequirement,
+  WasteStreamRequirement,
+} from '../requirements/requirementTypes';
+
 export type CirculationRequirementType = 'drive_through' | 'back_out_turnaround' | 'one_way_loop';
 
 export interface ProgramAncillarySpacesRequirement {
@@ -38,12 +43,23 @@ export interface ProgramAncillarySpacesRequirement {
   oilWasteStorage?: boolean;
   staffRoom?: boolean;
   loungeWithBayView?: boolean;
+
+  // Extended MOBENG Space Program (M2A Semantic Presence)
+  customerRestroom?: boolean;
+  employeeRestroom?: boolean;
+  mushola?: boolean;
+  wudhu?: boolean;
+  employeeMess?: boolean;
+  waitingAreaDetails?: WaitingAreaContentRequirement;
+  wasteStreams?: WasteStreamRequirement;
+  employeeMotorcycleParking?: boolean;
 }
 
 export interface SiteParkingRequirement {
   customerParkingSpaces?: number;
   staffParkingSpaces?: number;
   vehicleStagingSpaces?: number;
+  employeeMotorcycleSpaces?: number;
 }
 
 export interface WorkshopProgram {

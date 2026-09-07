@@ -461,17 +461,52 @@ const SemanticRequirementView: React.FC<{ req: WorkshopLayoutRequirement }> = ({
       <div className="spec-category-card">
         <div className="spec-category-title">
           <span>🛋️</span>
-          <span>Fasilitas Penunjang</span>
+          <span>Fasilitas Penunjang (Space Program)</span>
         </div>
         <div className="spec-tag-list">
           {req.ancillarySpaces.customerLounge && <span className="spec-tag">✓ Ruang Tunggu</span>}
+          {req.ancillarySpaces.waitingAreaDetails?.targetCapacityMax && (
+            <span className="spec-tag">
+              👥 Kapasitas {req.ancillarySpaces.waitingAreaDetails.targetCapacityMin ?? 10}–{req.ancillarySpaces.waitingAreaDetails.targetCapacityMax} Orang
+            </span>
+          )}
           {req.ancillarySpaces.loungeWithBayView && <span className="spec-tag">✓ Kaca Tembus Bay</span>}
           {req.ancillarySpaces.cashierOffice && <span className="spec-tag">✓ Kantor Kasir</span>}
           {req.ancillarySpaces.partsWarehouse && <span className="spec-tag">✓ Gudang Sparepart</span>}
-          {req.ancillarySpaces.restroom && <span className="spec-tag">✓ Toilet</span>}
+          {req.ancillarySpaces.customerRestroom && <span className="spec-tag">✓ Toilet Customer</span>}
+          {req.ancillarySpaces.employeeRestroom && <span className="spec-tag">✓ Toilet Karyawan</span>}
+          {!req.ancillarySpaces.customerRestroom && !req.ancillarySpaces.employeeRestroom && req.ancillarySpaces.restroom && (
+            <span className="spec-tag">✓ Toilet</span>
+          )}
+          {Boolean(req.ancillarySpaces.mushola) && (
+            <span className="spec-tag">
+              🕌 Mini Mushola
+              {typeof req.ancillarySpaces.mushola === 'object' && req.ancillarySpaces.mushola.designReferenceWidthMeters
+                ? ` (~${req.ancillarySpaces.mushola.designReferenceWidthMeters}×${req.ancillarySpaces.mushola.designReferenceLengthMeters}m Ref)`
+                : ''}
+            </span>
+          )}
+          {Boolean(req.ancillarySpaces.wudhu) && <span className="spec-tag">💧 Tempat Wudhu</span>}
+          {Boolean(req.ancillarySpaces.employeeMess) && (
+            <span className="spec-tag">
+              🛏️ Mess Karyawan (Tidur min {typeof req.ancillarySpaces.employeeMess === 'object' ? req.ancillarySpaces.employeeMess.minSleepingCapacity ?? 4 : 4} Orang)
+            </span>
+          )}
           {req.ancillarySpaces.compressorRoom && <span className="spec-tag">✓ Ruang Kompresor</span>}
-          {req.ancillarySpaces.oilWasteStorage && <span className="spec-tag">✓ Penyimpanan Oli</span>}
-          {req.ancillarySpaces.staffRoom && <span className="spec-tag">✓ Ruang Staf</span>}
+          {req.ancillarySpaces.wasteStreams ? (
+            <>
+              {req.ancillarySpaces.wasteStreams.oil && <span className="spec-tag">♻️ Limbah Oli</span>}
+              {req.ancillarySpaces.wasteStreams.tire && <span className="spec-tag">♻️ Limbah Ban</span>}
+              {req.ancillarySpaces.wasteStreams.parts && <span className="spec-tag">♻️ Limbah Part</span>}
+              {req.ancillarySpaces.wasteStreams.cardboard && <span className="spec-tag">♻️ Limbah Kardus</span>}
+            </>
+          ) : (
+            req.ancillarySpaces.oilWasteStorage && <span className="spec-tag">✓ Penyimpanan Oli</span>
+          )}
+          {!req.ancillarySpaces.employeeMess && req.ancillarySpaces.staffRoom && <span className="spec-tag">✓ Ruang Staf</span>}
+          {(req.ancillarySpaces.employeeMotorcycleParking || (req.parking?.employeeMotorcycleSpaces && req.parking.employeeMotorcycleSpaces > 0)) && (
+            <span className="spec-tag">🛵 Parkir Motor Karyawan</span>
+          )}
         </div>
       </div>
     </div>
