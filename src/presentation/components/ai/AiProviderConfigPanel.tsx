@@ -29,6 +29,8 @@ export interface AiProviderConfigPanelProps {
   readonly onBaseUrlChange?: (url: string) => void;
   readonly onTestConnection: () => void;
   readonly onLoadModels: () => void;
+  readonly isSavingConfig?: boolean;
+  readonly onSaveConfig?: (scope: 'local' | 'global') => void;
 }
 
 export const AiProviderConfigPanel: React.FC<AiProviderConfigPanelProps> = ({
@@ -44,9 +46,13 @@ export const AiProviderConfigPanel: React.FC<AiProviderConfigPanelProps> = ({
   onModelChange,
   onTestConnection,
   onLoadModels,
+  isSavingConfig,
+  onSaveConfig,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isCustomModel, setIsCustomModel] = useState(initialCustomModel ?? false);
+  const [saveScope, setSaveScope] = useState<'local' | 'global'>('local');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Group catalog models by category
   const categories = useMemo(() => {
@@ -210,23 +216,58 @@ export const AiProviderConfigPanel: React.FC<AiProviderConfigPanelProps> = ({
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', paddingTop: '16px' }}>
           <button
             type="button"
+            onClick={onLoadModels}
+            disabled={isLoadingModels}
             data-testid="btn-load-models"
             className="ai-btn ai-btn-secondary"
-            onClick={onLoadModels}
-            disabled={isLoadingModels || !apiKey.trim()}
           >
-            {isLoadingModels ? '⏳ Memuat...' : '📋 Load Models'}
+            {isLoadingModels ? '⏳ Loading...' : '📋 Load Models'}
           </button>
 
           <button
             type="button"
+            onClick={onTestConnection}
+            disabled={isTestingConnection}
             data-testid="btn-test-connection"
             className="ai-btn ai-btn-secondary"
-            onClick={onTestConnection}
-            disabled={isTestingConnection || !apiKey.trim()}
           >
-            {isTestingConnection ? '🔄 Menghubungkan...' : '🔌 Test Connection'}
+            {isTestingConnection ? '🔌 Testing...' : '🔌 Test Connection'}
           </button>
+        </div>
+
+        {/* Save Settings Section */}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border-color)', marginTop: '8px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Simpan Pengaturan:</span>
+            <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input type="radio" name="saveScope" checked={saveScope === 'local'} onChange={() => setSaveScope('local')} />
+              Lokal (Browser)
+            </label>
+            <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+              <input type="radio" name="saveScope" checked={saveScope === 'global'} onChange={() => setSaveScope('global')} />
+              Global (.env)
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onSaveConfig?.(saveScope);
+              setSaveMessage(saveScope === 'local' ? '✅ Disimpan secara lokal' : '✅ Disimpan ke .env global');
+              setTimeout(() => setSaveMessage(null), 3000);
+            }}
+            disabled={isSavingConfig || !onSaveConfig}
+            className="ai-btn ai-btn-primary"
+            style={{ padding: '6px 12px', fontSize: '11px', flexShrink: 0 }}
+          >
+            {isSavingConfig ? 'Menyimpan...' : '💾 Simpan'}
+          </button>
+          
+          {saveMessage && (
+            <span style={{ fontSize: '11px', color: 'var(--accent-green)', fontWeight: 600, animation: 'fadeIn 0.2s' }}>
+              {saveMessage}
+            </span>
+          )}
         </div>
       </div>
 

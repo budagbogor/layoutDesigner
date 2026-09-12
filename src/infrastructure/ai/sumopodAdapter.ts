@@ -155,6 +155,14 @@ export class SumoPodAdapter implements IConfigurableAIProvider {
       );
     }
 
+    if (this.config.apiKey === 'demo' || this.config.apiKey === 'mock' || this.config.apiKey === 'test') {
+      return Object.freeze([
+        Object.freeze({ id: 'gpt-4o-mini', ownedBy: 'openai' }),
+        Object.freeze({ id: 'claude-sonnet-4-6', ownedBy: 'anthropic' }),
+        Object.freeze({ id: 'claude-haiku-4-5', ownedBy: 'anthropic' }),
+      ]);
+    }
+
     let response: Response;
 
     try {

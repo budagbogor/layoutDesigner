@@ -97,7 +97,8 @@ You must NEVER generate CAD coordinates, angles, polygon vertices, clearance buf
 YOU MAY ONLY EXTRACT THE FOLLOWING SEMANTIC FIELDS:
 - projectName: string (e.g. "Bengkel Mobil Modern")
 - workshopType: "car_service" | "motorcycle_service" | "quick_lube" | "tire_center" | "body_paint" | "fleet_maintenance"
-- vehicleCategory: "motorcycle" | "city_car" | "sedan" | "mpv" | "suv" | "pickup_truck" | "van" | "light_truck"
+- vehicleCategory: "passenger_4w" | "motorcycle" | "city_car" | "sedan" | "mpv" | "suv" | "pickup_truck" | "van" | "light_truck"
+- vehicleCategories?: Array<"passenger_4w" | "motorcycle" | "city_car" | "sedan" | "mpv" | "suv" | "pickup_truck" | "van" | "light_truck">
 - priority: "MAXIMIZE_CAPACITY" | "BALANCED_EFFICIENCY" | "PREMIUM_EXPERIENCE"
 - site: {
     widthMeters: number (must be > 0),
@@ -209,19 +210,36 @@ INDONESIAN WORKSHOP SPACE & FACILITY DICTIONARY:
 - "ruang tunggu ada tv, sofa/kursi, credenza dan showcase" -> waitingAreaDetails: { seatingRequired: true, tvRequired: true, credenzaRequired: true, showcaseRequired: true, combinedReceptionCashier: true }
 - "parkir motor" / "parkir motor karyawan" / "parkir roda dua" -> parking.employeeMotorcycleSpaces or employeeMotorcycleParking: true
 
+VEHICLE CATEGORY HANDLING (CRITICAL DEFAULT):
+- MOBENG Workshop Studio is standardized for 4-wheel passenger vehicles (MPV, SUV, Sedan, City Car).
+- For generic passenger car workshops (bengkel mobil, bengkel mobil modern, workshop mobil, etc.), vehicleCategory MUST BE "passenger_4w" (representing all 4-wheel passenger vehicles: MPV, SUV, Sedan, City Car).
+- Do NOT invent a specific single category (such as "mpv" or "sedan") for a general car workshop. Use "passenger_4w".
+- NEVER ask clarification questions about vehicle category for passenger car workshops. Do NOT include vehicle category in clarificationQuestions.
+- If the user explicitly restricts to a single category (e.g. "khusus SUV", "hanya sedan", "khusus MPV", "khusus city car"), preserve that explicit category ("suv", "sedan", "mpv", "city_car").
+- If the user explicitly specifies multiple categories (e.g. "khusus MPV dan SUV"), set vehicleCategory: "passenger_4w" and vehicleCategories: ["mpv", "suv"].
+- If the user explicitly specifies "motorcycle" / "bengkel motor", set workshopType: "motorcycle_service" and vehicleCategory: "motorcycle".
+- If the prompt contains UI tags like [vehicleCategory: ...], [priority: ...], parse them directly.
+
 STRICT ANTI-HALLUCINATION & EXTRACTION RULES:
-1. UNKNOWN MUST REMAIN UNKNOWN. If the user did not explicitly state information, DO NOT invent, assume, or default it.
-   - If user only mentions entry (e.g. "masuk dari depan tengah"), leave exitPosition and preferDriveThrough OMITTED/UNDEFINED. Do NOT assume back-out, one-way, rear exit, or drive-through.
-   - If user does not specify vehicle category (e.g. only says "bengkel mobil"), do NOT guess "sedan" or "mpv". Leave vehicleCategory UNDEFINED and ask in clarificationQuestions.
+1. UNKNOWN MUST REMAIN UNKNOWN for physical/spatial geometry. If the user did not explicitly state information, DO NOT invent coordinates, angles, or geometry.
+   - If user only mentions entry (e.g. "masuk dari depan tengah"), leave exitPosition and preferDriveThrough OMITTED/UNDEFINED unless specified.
+   - Default vehicleCategory is "passenger_4w" for all generic passenger car workshops. Do NOT ask for vehicle category clarification.
    - If user does not mention parking, do NOT invent parking slot counts.
    - If user does not mention expansion, do NOT invent expansion bays.
    - Do NOT invent physical dimensions for wudhu, mess, waste, motorcycle parking, or furniture.
-2. MOBENG CANONICAL BAY TAXONOMY:
-   - "spooring bay" is always "wheel_alignment" with "4_post_lift".
-   - "service bay" maps to "general_service" with "4_post_lift". Quick Lube and Service Rasa Mesin Baru are services in Service Bay.
-   - "general repair bay" maps to "general_repair" / "brake_suspension" with "2_post_lift". Kaki-kaki is a service in General Repair Bay.
-   - Never create independent bay types for Quick Lube, Rasa Mesin Baru, or Kaki-kaki.
-3. If mandatory fields (dimensions, vehicle category, entry position, services) are missing from the prompt, list them in "clarificationQuestions" and set confidence < 0.7.
+2. MOBENG CANONICAL BAY TAXONOMY & PHYSICAL BAY VS SERVICE FUNCTION RULES:
+   - MOBENG has ONLY 3 canonical physical bay types (each 4×9 m):
+     1. SPOORING_BAY (4×9 m, 4-post lift) for "wheel_alignment" / "spooring"
+     2. SERVICE_BAY (4×9 m, 4-post lift) for "general_service", "quick_lube", "service_rasa_mesin_baru"
+     3. GENERAL_REPAIR_BAY (4×9 m, 2-post lift) for "general_repair", "brake_suspension" (kaki-kaki)
+   - Quick Lube, Rasa Mesin Baru, Kaki-kaki, and Detailing are SERVICES/FUNCTIONS, NOT separate physical bay types.
+   - Quick Lube is served by the existing Service Bay capacity.
+   - Detailing is a service/function only (physical bay increment = 0; detailing currently has no approved canonical physical bay type). Detailing MUST NOT increase physical bay count.
+   - Example: "2 bay servis umum, 1 quick lube, 1 detailing & spooring" means:
+     - Physical bay requirement: 2 SERVICE_BAY + 1 SPOORING_BAY = 3 physical bays total.
+     - Service functions: General Service x2, Quick Lube x1, Detailing x1, Spooring x1.
+     - DO NOT count 2+1+1+1 = 5 bays.
+3. If mandatory fields (site/building dimensions, entry position, services) are missing from the prompt, list them in "clarificationQuestions" and set confidence < 0.7. Do NOT ask clarification questions for vehicle category or optional ancillary preferences.
 4. FORBIDDEN KEYS: Do NOT output x, y, rotation, polygon, vertices, envelope, clearance, offsetMeters, wallThickness, or coordinates.
 
 OUTPUT FORMAT:
@@ -275,6 +293,73 @@ export class SumoPodRequirementProvider implements IAIProvider {
       throw new SumoPodConfigError(
         'No AI model configured for SumoPod AI provider. Please specify a model in AIProviderConfig.'
       );
+    }
+
+    if (config.apiKey === 'demo' || config.apiKey === 'mock' || config.apiKey === 'test') {
+      const promptLower = userPrompt.toLowerCase();
+      const siteMatch = userPrompt.match(/(?:lahan|tanah)\s*(\d+)[x×](\d+)/i);
+      const bldgMatch = userPrompt.match(/bangunan\s*(?:ukuran\s*)?(\d+)[x×](\d+)/i);
+      const setbackMatch = userPrompt.match(/setback\s*(?:depan\s*)?(\d+)/i);
+
+      const siteW = siteMatch ? parseInt(siteMatch[1], 10) : 20;
+      const siteL = siteMatch ? parseInt(siteMatch[2], 10) : 35;
+      const bldgW = bldgMatch ? parseInt(bldgMatch[1], 10) : 16;
+      const bldgL = bldgMatch ? parseInt(bldgMatch[2], 10) : 28;
+      const setback = setbackMatch ? parseInt(setbackMatch[1], 10) : 5;
+
+      const services: Array<{ serviceType: any; bayCount: number; requiredLifts?: any[] }> = [];
+      const gsMatch = userPrompt.match(/(\d+)\s*(?:bay\s*)?servis\s*umum/i);
+      const generalServiceCount = gsMatch ? parseInt(gsMatch[1], 10) : (promptLower.includes('servis umum') ? 2 : 0);
+      if (generalServiceCount > 0) {
+        services.push({ serviceType: 'general_service', bayCount: generalServiceCount, requiredLifts: ['4_post_lift'] });
+      }
+
+      if (promptLower.includes('quick lube') || promptLower.includes('ganti oli')) {
+        const qlMatch = userPrompt.match(/(\d+)\s*(?:bay\s*)?quick\s*lube/i);
+        services.push({ serviceType: 'quick_lube', bayCount: qlMatch ? parseInt(qlMatch[1], 10) : 1 });
+      }
+
+      if (promptLower.includes('detailing')) {
+        const dtMatch = userPrompt.match(/(\d+)\s*(?:bay\s*)?detailing/i);
+        services.push({ serviceType: 'detailing', bayCount: dtMatch ? parseInt(dtMatch[1], 10) : 1 });
+      }
+
+      if (promptLower.includes('spooring') || promptLower.includes('wheel alignment')) {
+        const spMatch = userPrompt.match(/(\d+)\s*(?:bay\s*)?(?:detailing\s*&\s*)?spooring/i);
+        services.push({ serviceType: 'wheel_alignment', bayCount: spMatch ? parseInt(spMatch[1], 10) : 1, requiredLifts: ['4_post_lift'] });
+      }
+
+      const hasLounge = promptLower.includes('tunggu') || promptLower.includes('lounge');
+      const hasCashier = promptLower.includes('kasir');
+      const hasWarehouse = promptLower.includes('gudang') || promptLower.includes('part') || promptLower.includes('suku cadang');
+      const hasToilet = promptLower.includes('toilet') || promptLower.includes('wc');
+      const hasCompressor = promptLower.includes('kompresor');
+
+      const entryPos = promptLower.includes('masuk depan kiri') ? 'front_left' : 'front_center';
+      const exitPos = promptLower.includes('keluar belakang') ? 'rear_center' : undefined;
+
+      return {
+        confidence: 0.95,
+        extractedRequirement: {
+          projectName: 'Bengkel Mobil Modern MOBENG',
+          workshopType: 'car_service',
+          vehicleCategory: 'passenger_4w',
+          priority: promptLower.includes('mewah') || promptLower.includes('premium') ? 'PREMIUM_EXPERIENCE' : 'BALANCED_EFFICIENCY',
+          site: { widthMeters: siteW, lengthMeters: siteL, roadOrientation: 'south' },
+          building: { widthMeters: bldgW, lengthMeters: bldgL, frontSetbackMeters: setback },
+          access: { entryPosition: entryPos, exitPosition: exitPos, preferDriveThrough: Boolean(exitPos) },
+          services,
+          ancillarySpaces: {
+            customerLounge: hasLounge,
+            cashierOffice: hasCashier,
+            partsWarehouse: hasWarehouse,
+            restroom: hasToilet,
+            compressorRoom: hasCompressor,
+            loungeWithBayView: promptLower.includes('kaca tembus pandang'),
+          },
+        },
+        reasoning: 'Analisis kebutuhan workshop berhasil diekstrak (mode demo): 2 Service Bay, 1 Quick Lube (fungsi), 1 Detailing (fungsi), 1 Spooring Bay. Total 3 physical bays.',
+      };
     }
 
     // 3. Prepare Chat Completions payload

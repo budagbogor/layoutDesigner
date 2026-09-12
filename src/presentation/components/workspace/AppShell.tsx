@@ -1,14 +1,19 @@
 // ---------------------------------------------------------------------------
-// FASE 3.7 — Unified Application Shell
+// Productization Phase 1 — Unified Application Shell
 //
 // Hosts:
 // 1. AI Workshop Assistant (Primary Default Entry Point)
 // 2. CAD Workspace (Preserved existing CAD Canvas & Tools)
+//
+// Additions:
+// - Success toast after generation (auto-dismiss 4s)
+// - User-friendly generation failure translation passed to AI view
+// - Tab labels in user-facing Indonesian
 // ---------------------------------------------------------------------------
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkshopProject } from '../../../domain/models/project';
 import { WorkshopLayoutRequirement } from '../../../domain/requirements/requirementTypes';
 import { StandardAccessor } from '../../../domain/engine/StandardAccessor';
@@ -20,9 +25,11 @@ import demoStandardFixture from '../../../../data/demo-standard.json';
 import { LayoutEngineResult } from '../../../domain/engine/orchestrator/orchestratorTypes';
 import { LayoutEngineInput } from '../../../domain/engine/types';
 import { AiWorkshopAssistant } from '../ai/AiWorkshopAssistant';
+import { useAiWorkshopAssistant } from '../ai/useAiWorkshopAssistant';
+import { AiProviderConfigPanel } from '../ai/AiProviderConfigPanel';
 import { CadWorkspace } from './CadWorkspace';
 
-export type AppViewMode = 'ai' | 'cad';
+export type AppViewMode = 'ai' | 'cad' | 'settings';
 
 export interface AppShellProps {
   readonly initialProject: WorkshopProject;
@@ -46,10 +53,32 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [isGeneratingLayout, setIsGeneratingLayout] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  // Phase 3.3: Store the original requirement for traceability in Summary panel
+  const [activeRequirement, setActiveRequirement] = useState<WorkshopLayoutRequirement | null>(null);
+  const [generationSucceeded, setGenerationSucceeded] = useState(false);
 
-  const handleGenerateLayout = (requirement: WorkshopLayoutRequirement) => {
+  const aiState = useAiWorkshopAssistant({
+    initialApiKey,
+    initialBaseUrl,
+    initialModel,
+  });
+
+  // Auto-dismiss success toast after 4 seconds
+  useEffect(() => {
+    if (!successToast) return;
+    const timer = setTimeout(() => setSuccessToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [successToast]);
+
+  const handleGenerateLayout = async (requirement: WorkshopLayoutRequirement) => {
     setIsGeneratingLayout(true);
     setGenerationError(null);
+    setActiveRequirement(requirement); // Phase 3.3: preserve requirement for traceability
+    setGenerationSucceeded(false);
+
+    // Yield to the browser so React can paint the "Loading..." state and clear previous errors
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     try {
       const defaultStandard = demoStandardFixture as unknown as WorkshopStandard;
@@ -66,6 +95,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           engineResult.engineeringSummary.primaryDisqualificationReason ||
           'Layout tidak memenuhi standar HARD constraints bangunan dan sirkulasi.';
         setGenerationError(reason);
+        setGenerationSucceeded(false);
         return;
       }
 
@@ -92,6 +122,8 @@ export const AppShell: React.FC<AppShellProps> = ({
       setActiveCandidateId(engineResult.bestCandidate.candidateId);
       setCurrentProject(cadProject);
       setViewMode('cad');
+      setSuccessToast('✅ Layout berhasil dibuat');
+      setGenerationSucceeded(true); // Phase 3.3
     } catch (err) {
       setGenerationError(
         (err as Error).message || 'Terjadi kesalahan saat memproses layout CAD.'
@@ -111,15 +143,14 @@ export const AppShell: React.FC<AppShellProps> = ({
             style={{
               background:
                 viewMode === 'ai'
-                  ? 'linear-gradient(135deg, #00d2ff 0%, #2f81f7 100%)'
-                  : 'var(--accent-cyan)',
-              color: '#050a10',
+                  ? 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)'
+                  : 'var(--accent-blue)',
+              color: '#ffffff',
             }}
           >
-            {viewMode === 'ai' ? 'AI DESIGN' : 'CAD CORE'}
+            {viewMode === 'ai' ? 'AI' : 'CAD'}
           </span>
           <span className="brand-title">Mobeng Workshop Studio</span>
-          <span className="header-status-badge">Phase 4.6 — Layout Explorer</span>
         </div>
 
         {/* Mode Switcher Tabs */}
@@ -131,7 +162,16 @@ export const AppShell: React.FC<AppShellProps> = ({
             data-testid="tab-ai-assistant"
           >
             <span>✨</span>
-            <span>AI Assistant</span>
+            <span>Workshop Baru</span>
+          </button>
+          <button
+            type="button"
+            className={`app-mode-tab ${viewMode === 'settings' ? 'active' : ''}`}
+            onClick={() => setViewMode('settings')}
+            data-testid="tab-ai-settings"
+          >
+            <span>⚙️</span>
+            <span>Pengaturan AI</span>
           </button>
           <button
             type="button"
@@ -140,25 +180,61 @@ export const AppShell: React.FC<AppShellProps> = ({
             data-testid="tab-cad-canvas"
           >
             <span>📐</span>
-            <span>CAD Canvas</span>
+            <span>Layout CAD</span>
+            {layoutEngineResult && (
+              <span
+                style={{
+                  fontSize: '9px',
+                  background: 'var(--accent-blue)',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '1px 5px',
+                  fontWeight: 800,
+                  marginLeft: '2px',
+                }}
+              >
+                ●
+              </span>
+            )}
           </button>
         </div>
 
         {/* Right Info */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            Project: <strong style={{ color: 'var(--text-primary)' }}>{currentProject.project.name}</strong>
+            Proyek: <strong style={{ color: 'var(--text-primary)' }}>{currentProject.project.name}</strong>
           </span>
         </div>
       </header>
 
       {/* Main View Container */}
-      <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {viewMode === 'ai' ? (
+      <main style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        {viewMode === 'settings' ? (
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: 'var(--bg-primary)' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>Pengaturan Provider AI</h2>
+                <AiProviderConfigPanel
+                  baseUrl={aiState.baseUrl}
+                  apiKey={aiState.apiKey}
+                  model={aiState.model}
+                  availableModels={aiState.availableModels}
+                  isTestingConnection={aiState.isTestingConnection}
+                  isLoadingModels={aiState.isLoadingModels}
+                  connectionResult={aiState.connectionResult}
+                  onApiKeyChange={aiState.setApiKey}
+                  onModelChange={aiState.setModel}
+                  onTestConnection={() => aiState.testConnection()}
+                  onLoadModels={() => aiState.loadModels()}
+                  isSavingConfig={aiState.isSavingConfig}
+                  onSaveConfig={aiState.saveConfig}
+                />
+              </div>
+            </div>
+          </div>
+        ) : viewMode === 'ai' ? (
           <AiWorkshopAssistant
-            initialApiKey={initialApiKey}
-            initialBaseUrl={initialBaseUrl}
-            initialModel={initialModel}
+            {...aiState}
             onOpenCadWorkspace={() => setViewMode('cad')}
             onGenerateLayout={handleGenerateLayout}
             isGeneratingLayout={isGeneratingLayout}
@@ -173,6 +249,10 @@ export const AppShell: React.FC<AppShellProps> = ({
               engineInput={engineInput}
               activeCandidateId={activeCandidateId}
               onActiveCandidateChange={setActiveCandidateId}
+              successToast={successToast}
+              onDismissSuccessToast={() => setSuccessToast(null)}
+              requirement={activeRequirement}
+              hasGeneratedLayout={generationSucceeded}
             />
           </div>
         )}

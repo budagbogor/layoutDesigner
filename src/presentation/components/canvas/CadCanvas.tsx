@@ -644,6 +644,50 @@ export const CadCanvas: React.FC<CadCanvasProps> = ({ store, onCursorMove }) => 
           </g>
         )}
       </svg>
+
+      {/* Functional Zoning Legend Overlay */}
+      <div
+        className="cad-zone-legend"
+        data-testid="cad-zone-legend"
+        style={{
+          position: 'absolute',
+          bottom: '16px',
+          left: '16px',
+          zIndex: 10,
+          background: 'rgba(22, 29, 40, 0.88)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '6px',
+          padding: '8px 12px',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+          fontSize: '11px',
+          pointerEvents: 'none',
+        }}
+      >
+        <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Zonasi:
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(0, 210, 255, 0.8)' }} />
+          <span style={{ color: '#79c0ff', fontWeight: 600 }}>AREA PELANGGAN</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(46, 160, 67, 0.8)' }} />
+          <span style={{ color: '#3fb950', fontWeight: 600 }}>AREA SERVIS</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(163, 113, 247, 0.8)' }} />
+          <span style={{ color: '#d2a8ff', fontWeight: 600 }}>AREA KARYAWAN</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'rgba(210, 153, 34, 0.8)' }} />
+          <span style={{ color: '#e3b341', fontWeight: 600 }}>AREA PENYIMPANAN &amp; LOGISTIK</span>
+        </div>
+      </div>
     </div>
   );
 };
+

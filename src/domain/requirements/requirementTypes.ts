@@ -33,6 +33,7 @@ export type WorkshopType =
 
 /** Human-readable vehicle size category. Mapped to vehicleClassKey by RequirementMapper. */
 export type VehicleCategory =
+  | 'passenger_4w'
   | 'motorcycle'
   | 'city_car'
   | 'sedan'
@@ -187,6 +188,113 @@ export interface BayProgramItem {
   readonly requiredLifts?: readonly LiftType[];
 }
 
+/**
+ * Consolidates semantic service/function items into canonical MOBENG physical bay requirements.
+ * Rules:
+ * 1. SERVICE_BAY (4x9m, 4-post lift):
+ *    - Hosts functions: 'general_service', 'quick_lube', 'service_rasa_mesin_baru'.
+ *    - Physical count = max(general_service, quick_lube, service_rasa_mesin_baru).
+ *    - Quick Lube / Rasa Mesin Baru do not add extra physical bays if service bays are already allocated.
+ * 2. SPOORING_BAY (4x9m, 4-post lift):
+ *    - Hosts function: 'wheel_alignment'.
+ *    - Physical count = wheel_alignment count.
+ * 3. GENERAL_REPAIR_BAY (4x9m, 2-post lift):
+ *    - Hosts functions: 'general_repair', 'brake_suspension'.
+ *    - Physical count = max(general_repair, brake_suspension).
+ * 4. Detailing / Function-only services:
+ *    - Currently have no approved canonical physical bay in MOBENG.
+ *    - Physical bay increment = 0.
+ */
+export function derivePhysicalBayRequirements(
+  services: readonly ServiceProgramItem[]
+): readonly BayProgramItem[] {
+  let generalServiceCount = 0;
+  let quickLubeCount = 0;
+  let rasaMesinBaruCount = 0;
+  let wheelAlignmentCount = 0;
+  let generalRepairCount = 0;
+  let brakeSuspensionCount = 0;
+
+  for (const svc of services) {
+    switch (svc.serviceType) {
+      case 'general_service':
+        generalServiceCount += svc.bayCount;
+        break;
+      case 'quick_lube':
+        quickLubeCount += svc.bayCount;
+        break;
+      case 'service_rasa_mesin_baru':
+        rasaMesinBaruCount += svc.bayCount;
+        break;
+      case 'wheel_alignment':
+        wheelAlignmentCount += svc.bayCount;
+        break;
+      case 'general_repair':
+        generalRepairCount += svc.bayCount;
+        break;
+      case 'brake_suspension':
+        brakeSuspensionCount += svc.bayCount;
+        break;
+      case 'detailing':
+      default:
+        // Service/function only — no physical bay increment
+        break;
+    }
+  }
+
+  const physicalBays: BayProgramItem[] = [];
+
+  // 1. SERVICE_BAY
+  const serviceBayPhysicalCount = Math.max(
+    generalServiceCount,
+    quickLubeCount,
+    rasaMesinBaruCount
+  );
+  if (serviceBayPhysicalCount > 0) {
+    const supported: ServiceType[] = [];
+    if (generalServiceCount > 0) supported.push('general_service');
+    if (quickLubeCount > 0) supported.push('quick_lube');
+    if (rasaMesinBaruCount > 0) supported.push('service_rasa_mesin_baru');
+
+    physicalBays.push(Object.freeze({
+      bayType: 'SERVICE_BAY' as const,
+      bayCount: serviceBayPhysicalCount,
+      supportedServices: Object.freeze(supported),
+      requiredLifts: Object.freeze<LiftType[]>(['4_post_lift']),
+    }));
+  }
+
+  // 2. SPOORING_BAY
+  if (wheelAlignmentCount > 0) {
+    physicalBays.push(Object.freeze({
+      bayType: 'SPOORING_BAY' as const,
+      bayCount: wheelAlignmentCount,
+      supportedServices: Object.freeze<ServiceType[]>(['wheel_alignment']),
+      requiredLifts: Object.freeze<LiftType[]>(['4_post_lift']),
+    }));
+  }
+
+  // 3. GENERAL_REPAIR_BAY
+  const generalRepairPhysicalCount = Math.max(
+    generalRepairCount,
+    brakeSuspensionCount
+  );
+  if (generalRepairPhysicalCount > 0) {
+    const supported: ServiceType[] = [];
+    if (generalRepairCount > 0) supported.push('general_repair');
+    if (brakeSuspensionCount > 0) supported.push('brake_suspension');
+
+    physicalBays.push(Object.freeze({
+      bayType: 'GENERAL_REPAIR_BAY' as const,
+      bayCount: generalRepairPhysicalCount,
+      supportedServices: Object.freeze(supported),
+      requiredLifts: Object.freeze<LiftType[]>(['2_post_lift']),
+    }));
+  }
+
+  return Object.freeze(physicalBays);
+}
+
 // ---------------------------------------------------------------------------
 // 5. Ancillary Spaces & Extended MOBENG Space Program (M2A)
 // ---------------------------------------------------------------------------
@@ -317,6 +425,8 @@ export interface WorkshopLayoutRequirement {
   readonly projectName: string;
   readonly workshopType: WorkshopType;
   readonly vehicleCategory: VehicleCategory;
+  /** Explicit multiple vehicle categories if user specified more than one (e.g. ['mpv', 'suv']) */
+  readonly vehicleCategories?: readonly VehicleCategory[];
   readonly priority: BusinessPriority;
 
   // -- Physical Dimensions (Semantic) --

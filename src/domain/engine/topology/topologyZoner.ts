@@ -12,7 +12,8 @@ export type ProgramSpaceCategory =
   | 'SERVICE_BAY'
   | 'SITE_PARKING'
   | 'STRUCTURAL'
-  | 'CIRCULATION';
+  | 'CIRCULATION'
+  | 'BACK_OF_HOUSE';
 
 export interface CapacityRequirementIntent {
   readonly targetQuantity: number;
@@ -194,11 +195,30 @@ export function deriveTopologyZones(
         break;
       }
 
-      case 'RESTROOM': {
+      case 'RESTROOM':
+      case 'CUSTOMER_RESTROOM': {
         spaceCategory = 'CUSTOMER_CLEAN';
         capacity = {
           targetQuantity: 1,
-          unit: 'sanitary_restroom',
+          unit: 'customer_sanitary_restroom',
+        };
+        break;
+      }
+
+      case 'MUSHOLA': {
+        spaceCategory = 'CUSTOMER_CLEAN';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'mini_mushola_prayer_space',
+        };
+        break;
+      }
+
+      case 'WUDHU': {
+        spaceCategory = 'CUSTOMER_CLEAN';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'wudhu_ablution_facility',
         };
         break;
       }
@@ -208,6 +228,33 @@ export function deriveTopologyZones(
         capacity = {
           targetQuantity: 1,
           unit: 'staff_break_room',
+        };
+        break;
+      }
+
+      case 'EMPLOYEE_MESS': {
+        spaceCategory = 'BACK_OF_HOUSE';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'employee_mess_facility',
+        };
+        break;
+      }
+
+      case 'EMPLOYEE_RESTROOM': {
+        spaceCategory = 'BACK_OF_HOUSE';
+        capacity = {
+          targetQuantity: 1,
+          unit: 'employee_sanitary_restroom',
+        };
+        break;
+      }
+
+      case 'WASTE_AREA': {
+        spaceCategory = 'BACK_OF_HOUSE';
+        capacity = {
+          targetQuantity: 1,
+          unit: '4_stream_waste_facility',
         };
         break;
       }

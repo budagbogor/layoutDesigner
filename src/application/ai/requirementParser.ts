@@ -28,6 +28,7 @@
 
 import {
   WorkshopLayoutRequirement,
+  VehicleCategory,
   validateRequirement,
   RequirementValidationResult,
 } from '../../domain/requirements/requirementTypes';
@@ -212,35 +213,136 @@ export class AIRequirementParser {
       });
     }
 
-    const extracted = rawResponse.extractedRequirement;
+    const rawExtracted = rawResponse.extractedRequirement || {};
 
-    // If AI itself reported clarification questions, or confidence is low
-    if (
-      (rawResponse.clarificationQuestions && rawResponse.clarificationQuestions.length > 0) ||
-      rawResponse.confidence < CLARIFICATION_CONFIDENCE_THRESHOLD
-    ) {
-      const questions = buildClarificationQuestions(extracted, rawResponse.clarificationQuestions);
+    // 1. Vehicle category resolution:
+    // Default is 4-wheel passenger car ('passenger_4w' covering MPV, SUV, Sedan, City Car).
+    // Preserve explicit user restrictions if specific category or categories were requested.
+    const explicitCategories: VehicleCategory[] = [];
+    if (/\[vehicleCategory:\s*suv\]/i.test(userPrompt) || /\bsuv\b/i.test(userPrompt)) {
+      explicitCategories.push('suv');
+    }
+    if (/\[vehicleCategory:\s*sedan\]/i.test(userPrompt) || /\bsedan\b/i.test(userPrompt)) {
+      explicitCategories.push('sedan');
+    }
+    if (/\[vehicleCategory:\s*mpv\]/i.test(userPrompt) || /\bmpv\b/i.test(userPrompt)) {
+      explicitCategories.push('mpv');
+    }
+    if (/\[vehicleCategory:\s*city\s*car\]/i.test(userPrompt) || /\bcity\s*car\b/i.test(userPrompt)) {
+      explicitCategories.push('city_car');
+    }
+    if (/\[vehicleCategory:\s*motor(?:cycle)?\]/i.test(userPrompt) || /\b(bengkel\s+motor|sepeda\s+motor|motorcycle)\b/i.test(userPrompt)) {
+      explicitCategories.push('motorcycle');
+    }
+
+    let resolvedVehicleCategory: VehicleCategory;
+    let resolvedVehicleCategories: readonly VehicleCategory[] | undefined = undefined;
+
+    if (rawExtracted.vehicleCategory && rawExtracted.vehicleCategory !== 'passenger_4w') {
+      // If AI extracted a specific explicit restriction
+      resolvedVehicleCategory = rawExtracted.vehicleCategory;
+      if (rawExtracted.vehicleCategories && rawExtracted.vehicleCategories.length > 0) {
+        resolvedVehicleCategories = Object.freeze([...rawExtracted.vehicleCategories]);
+      }
+    } else if (explicitCategories.length === 1) {
+      resolvedVehicleCategory = explicitCategories[0];
+      resolvedVehicleCategories = Object.freeze([...explicitCategories]);
+    } else if (explicitCategories.length > 1) {
+      resolvedVehicleCategory = 'passenger_4w';
+      resolvedVehicleCategories = Object.freeze([...explicitCategories]);
+    } else {
+      // Default: 4-wheel passenger car scope
+      resolvedVehicleCategory = 'passenger_4w';
+    }
+
+    // 2. Priority resolution
+    let resolvedPriority = rawExtracted.priority;
+    if (!resolvedPriority) {
+      if (/\[priority:\s*Kapasitas\s*Maksimal\]/i.test(userPrompt) || /\b(kapasitas\s*maksimal|banyak\s*bay|maximize\s*capacity)\b/i.test(userPrompt)) {
+        resolvedPriority = 'MAXIMIZE_CAPACITY';
+      } else if (/\[priority:\s*Pengalaman\s*Premium\]/i.test(userPrompt) || /\b(premium|mewah|lounge\s*mewah)\b/i.test(userPrompt)) {
+        resolvedPriority = 'PREMIUM_EXPERIENCE';
+      } else {
+        resolvedPriority = 'BALANCED_EFFICIENCY';
+      }
+    }
+
+    // 3. Workshop Type resolution
+    let resolvedWorkshopType = rawExtracted.workshopType;
+    if (!resolvedWorkshopType) {
+      if (resolvedVehicleCategory === 'motorcycle') {
+        resolvedWorkshopType = 'motorcycle_service';
+      } else {
+        resolvedWorkshopType = 'car_service';
+      }
+    }
+
+    // 4. Project Name resolution
+    const resolvedProjectName = rawExtracted.projectName && rawExtracted.projectName.trim().length > 0
+      ? rawExtracted.projectName
+      : (resolvedWorkshopType === 'motorcycle_service' ? 'Bengkel Motor MOBENG' : 'Bengkel Mobil MOBENG');
+
+    // 5. Ancillary Spaces resolution
+    const promptLower = userPrompt.toLowerCase();
+    const resolvedAncillarySpaces = rawExtracted.ancillarySpaces ?? {
+      customerLounge: promptLower.includes('tunggu') || promptLower.includes('lounge'),
+      cashierOffice: promptLower.includes('kasir') || promptLower.includes('office'),
+      partsWarehouse: promptLower.includes('gudang') || promptLower.includes('part') || promptLower.includes('suku cadang'),
+      restroom: promptLower.includes('toilet') || promptLower.includes('wc') || promptLower.includes('restroom'),
+    };
+
+    const normalizedExtracted: Partial<WorkshopLayoutRequirement> = {
+      ...rawExtracted,
+      projectName: resolvedProjectName,
+      workshopType: resolvedWorkshopType,
+      vehicleCategory: resolvedVehicleCategory,
+      vehicleCategories: resolvedVehicleCategories,
+      priority: resolvedPriority,
+      ancillarySpaces: resolvedAncillarySpaces,
+    };
+
+    // Filter out clarification questions regarding vehicle category (always defaulted for passenger cars)
+    const isVehicleQuestion = (q: string): boolean => {
+      const lower = q.toLowerCase();
+      return (
+        lower.includes('kategori kendaraan') ||
+        lower.includes('jenis kendaraan') ||
+        lower.includes('kendaraan apa') ||
+        lower.includes('vehicle category') ||
+        lower.includes('mpv') ||
+        lower.includes('sedan') ||
+        lower.includes('suv') ||
+        lower.includes('city car')
+      );
+    };
+
+    const filteredAiQuestions = (rawResponse.clarificationQuestions || []).filter(
+      (q) => !isVehicleQuestion(q)
+    );
+
+    // Attempt to treat extracted data as a complete requirement
+    const candidate = normalizedExtracted as WorkshopLayoutRequirement;
+    const validation = validateRequirement(candidate);
+
+    // If mandatory fields are missing OR there are non-vehicle clarification questions
+    if (!validation.isValid) {
+      const questions = buildClarificationQuestionsFromMissing(validation.missingFields);
 
       return Object.freeze({
         status: 'NEEDS_CLARIFICATION' as const,
-        partialRequirement: Object.freeze({ ...extracted }),
+        partialRequirement: Object.freeze({ ...normalizedExtracted }),
         questions: Object.freeze(questions),
         confidence: rawResponse.confidence,
         reasoning: rawResponse.reasoning,
       });
     }
 
-    // Attempt to treat extracted data as a complete requirement
-    const candidate = extracted as WorkshopLayoutRequirement;
-    const validation = validateRequirement(candidate);
-
-    if (!validation.isValid) {
-      // Missing mandatory fields → needs clarification, not outright invalid
-      const questions = buildClarificationQuestionsFromMissing(validation.missingFields);
+    if (filteredAiQuestions.length > 0 && rawResponse.confidence < CLARIFICATION_CONFIDENCE_THRESHOLD) {
+      const questions = buildClarificationQuestions(normalizedExtracted, filteredAiQuestions);
 
       return Object.freeze({
         status: 'NEEDS_CLARIFICATION' as const,
-        partialRequirement: Object.freeze({ ...extracted }),
+        partialRequirement: Object.freeze({ ...normalizedExtracted }),
         questions: Object.freeze(questions),
         confidence: rawResponse.confidence,
         reasoning: rawResponse.reasoning,
@@ -314,16 +416,6 @@ function buildClarificationQuestions(
     );
   }
 
-  if (!partial.vehicleCategory) {
-    questions.push(
-      Object.freeze({
-        field: 'vehicleCategory',
-        question: 'Kategori kendaraan apa yang akan dilayani?',
-        suggestedOptions: Object.freeze(['MPV', 'Sedan', 'SUV', 'City Car', 'Motor']),
-      })
-    );
-  }
-
   if (!partial.access?.entryPosition) {
     questions.push(
       Object.freeze({
@@ -346,10 +438,6 @@ function buildClarificationQuestionsFromMissing(
       question: 'Jenis bengkel apa yang ingin Anda bangun?',
       suggestedOptions: ['Bengkel Mobil', 'Bengkel Motor', 'Quick Lube'],
     },
-    'vehicleCategory': {
-      question: 'Kategori kendaraan apa yang akan dilayani?',
-      suggestedOptions: ['MPV', 'Sedan', 'SUV', 'City Car', 'Motor'],
-    },
     'priority': {
       question: 'Apa prioritas utama layout bengkel Anda?',
       suggestedOptions: ['Kapasitas Maksimal', 'Seimbang', 'Pengalaman Premium'],
@@ -365,15 +453,17 @@ function buildClarificationQuestionsFromMissing(
     'ancillarySpaces': { question: 'Fasilitas penunjang apa yang dibutuhkan (ruang tunggu, kasir, gudang, toilet)?' },
   };
 
-  return missingFields.map((field) => {
-    // Find by exact match or by prefix
-    const mapped = fieldQuestionMap[field] ??
-      Object.entries(fieldQuestionMap).find(([k]) => field.startsWith(k))?.[1];
+  return missingFields
+    .filter((f) => f !== 'vehicleCategory') // Vehicle category is defaulted to 4-wheel passenger car
+    .map((field) => {
+      // Find by exact match or by prefix
+      const mapped = fieldQuestionMap[field] ??
+        Object.entries(fieldQuestionMap).find(([k]) => field.startsWith(k))?.[1];
 
-    return Object.freeze({
-      field,
-      question: mapped?.question ?? `Mohon lengkapi informasi untuk: ${field}`,
-      suggestedOptions: mapped?.suggestedOptions ? Object.freeze([...mapped.suggestedOptions]) : undefined,
+      return Object.freeze({
+        field,
+        question: mapped?.question ?? `Mohon lengkapi informasi untuk: ${field}`,
+        suggestedOptions: mapped?.suggestedOptions ? Object.freeze([...mapped.suggestedOptions]) : undefined,
+      });
     });
-  });
 }

@@ -104,7 +104,16 @@ describe('MOBENG DOMAIN FOUNDATION: BAY TAXONOMY & 4x9m STANDARD', () => {
       expect(mappingResult.engineInput).toBeDefined();
 
       const bays = mappingResult.engineInput!.program.bays;
-      expect(bays).toHaveLength(4);
+      // 3 canonical physical bay types: SERVICE_BAY (2), SPOORING_BAY (1), GENERAL_REPAIR_BAY (1)
+      expect(bays).toHaveLength(3);
+
+      const serviceBayReq = bays.find((b) => b.serviceType === 'SERVICE_BAY');
+      const spooringBayReq = bays.find((b) => b.serviceType === 'SPOORING_BAY');
+      const genRepairBayReq = bays.find((b) => b.serviceType === 'GENERAL_REPAIR_BAY');
+
+      expect(serviceBayReq?.quantity).toBe(2); // max(general_service: 2, quick_lube: 1) = 2
+      expect(spooringBayReq?.quantity).toBe(1);
+      expect(genRepairBayReq?.quantity).toBe(1);
 
       // Verify layout generator produces 4x9m bays with canonical metadata
       const orchestrator = new LayoutOrchestrator();
@@ -115,7 +124,7 @@ describe('MOBENG DOMAIN FOUNDATION: BAY TAXONOMY & 4x9m STANDARD', () => {
 
       const candidateLayout = engineResult.bestCandidate!.layout;
       const placedBays = candidateLayout.objects.filter((o) => o.type === 'service_bay');
-      expect(placedBays).toHaveLength(5); // 1 + 2 + 1 + 1 = 5 bays
+      expect(placedBays).toHaveLength(4); // 2 SERVICE_BAY + 1 SPOORING_BAY + 1 GENERAL_REPAIR_BAY = 4 bays
 
       for (const bay of placedBays) {
         expect(bay.geometry.width).toBe(4.0);
@@ -198,10 +207,10 @@ describe('MOBENG DOMAIN FOUNDATION: BAY TAXONOMY & 4x9m STANDARD', () => {
     });
 
     it('embeds official MOBENG canonical bay taxonomy into AI system prompt dictionary', () => {
-      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('canonical SPOORING BAY with 4-post lift');
-      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('canonical SERVICE BAY with 4-post lift');
-      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('canonical GENERAL REPAIR BAY with 2-post lift');
-      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('Never create independent bay types for Quick Lube, Rasa Mesin Baru, or Kaki-kaki');
+      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('SPOORING_BAY (4×9 m, 4-post lift)');
+      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('SERVICE_BAY (4×9 m, 4-post lift)');
+      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('GENERAL_REPAIR_BAY (4×9 m, 2-post lift)');
+      expect(WORKSHOP_ANALYST_SYSTEM_PROMPT).toContain('Quick Lube, Rasa Mesin Baru, Kaki-kaki, and Detailing are SERVICES/FUNCTIONS, NOT separate physical bay types');
     });
   });
 });

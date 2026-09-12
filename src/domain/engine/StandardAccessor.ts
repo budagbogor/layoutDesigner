@@ -80,6 +80,17 @@ export class StandardAccessor {
    */
   public getVehicleWidth(vehicleClassKey: string): number {
     const key = vehicleClassKey.endsWith('.width') ? vehicleClassKey : `${vehicleClassKey}.width`;
+    if (this.hasParameter(key)) {
+      return this.getRequiredNumericValue(key);
+    }
+    if (vehicleClassKey === 'vehicle.passenger_4w') {
+      if (this.hasParameter('vehicle.suv.width')) {
+        return this.getRequiredNumericValue('vehicle.suv.width');
+      }
+      if (this.hasParameter('vehicle.mpv.width')) {
+        return this.getRequiredNumericValue('vehicle.mpv.width');
+      }
+    }
     return this.getRequiredNumericValue(key);
   }
 

@@ -21,6 +21,7 @@ import {
   ServiceProgramItem,
   getCanonicalBayTypeForService,
   MOBENG_BAY_DEFAULT_LIFTS,
+  derivePhysicalBayRequirements,
 } from '../../domain/requirements/requirementTypes';
 
 import {
@@ -59,6 +60,7 @@ export interface EngineInputGap {
 // ---------------------------------------------------------------------------
 
 const VEHICLE_CATEGORY_KEY_MAP: Record<VehicleCategory, string> = {
+  passenger_4w: 'vehicle.passenger_4w',
   motorcycle: 'vehicle.motorcycle',
   city_car: 'vehicle.city_car',
   sedan: 'vehicle.sedan',
@@ -216,21 +218,22 @@ export class RequirementMapper {
     // --- 5. Vehicle Class Key ---
     const vehicleClassKey = VEHICLE_CATEGORY_KEY_MAP[requirement.vehicleCategory];
 
-    // --- 6. Service Program → Bays ---
-    const bays: ProgramBayRequirement[] = requirement.services.map((svc) => ({
-      serviceType: svc.serviceType,
-      quantity: svc.bayCount,
-      requiredEquipment: svc.requiredLifts ? [...svc.requiredLifts] : undefined,
+    // --- 6. Service Program → Canonical Physical Bays ---
+    const physicalBays = derivePhysicalBayRequirements(requirement.services);
+    const bays: ProgramBayRequirement[] = physicalBays.map((bay) => ({
+      serviceType: bay.bayType,
+      quantity: bay.bayCount,
+      requiredEquipment: bay.requiredLifts ? [...bay.requiredLifts] : undefined,
     }));
 
     // --- 7. Equipment ---
     const equipmentMap = new Map<string, number>();
 
-    // Collect lifts from service requirements
-    for (const bay of bays) {
-      if (bay.requiredEquipment) {
-        for (const lift of bay.requiredEquipment) {
-          equipmentMap.set(lift, (equipmentMap.get(lift) || 0) + bay.quantity);
+    // Collect lifts from canonical physical bay requirements
+    for (const bay of physicalBays) {
+      if (bay.requiredLifts) {
+        for (const lift of bay.requiredLifts) {
+          equipmentMap.set(lift, (equipmentMap.get(lift) || 0) + bay.bayCount);
         }
       }
     }

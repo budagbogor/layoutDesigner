@@ -3,7 +3,9 @@
  */
 export * from './models/project';
 export * from './models/standard';
+export * from './models/functionalZone';
 export * from './geometry/types';
+
 export * from './geometry/precision';
 export * from './geometry/primitives';
 export * from './geometry/collision';
@@ -13,3 +15,4 @@ export * from './export/svgExporter';
 export * from './export/cadRepresentation';
 export * from './engine';
 export * from './requirements/requirementTypes';
+export * from './equipment/equipmentSpatialization';

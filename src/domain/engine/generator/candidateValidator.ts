@@ -104,6 +104,24 @@ export function validateCandidateConstraints(
       const e1 = physicalEnvelopes[i];
       const e2 = physicalEnvelopes[j];
 
+      // Doors are wall penetrations on the building perimeter and do not collide with adjacent rooms sharing the boundary
+      if (e1.sourceObjectId.startsWith('door-') || e2.sourceObjectId.startsWith('door-')) {
+        continue;
+      }
+
+      // Internal subdivisions of the 4-stream waste area share internal boundaries and do not collide with each other
+      if (e1.sourceObjectId.startsWith('waste-') && e2.sourceObjectId.startsWith('waste-')) {
+        continue;
+      }
+
+      // Zero-gap partition boundary sharing between Mushola and Wudhu
+      if (
+        (e1.sourceObjectId === 'mushola' && e2.sourceObjectId === 'wudhu') ||
+        (e1.sourceObjectId === 'wudhu' && e2.sourceObjectId === 'mushola')
+      ) {
+        continue;
+      }
+
       if (overlapsEnvelope(e1, e2)) {
         hardViolations.push({
           ruleId: 'COLLISION-PHYSICAL-001',
@@ -125,6 +143,7 @@ export function validateCandidateConstraints(
   for (const workEnv of workingEnvelopes) {
     // A. Working envelope must not collide with other physical objects
     for (const physEnv of physicalEnvelopes) {
+      if (physEnv.sourceObjectId.startsWith('door-')) continue;
       if (physEnv.sourceObjectId !== workEnv.sourceObjectId && overlapsEnvelope(workEnv, physEnv)) {
         hardViolations.push({
           ruleId: 'CLEARANCE-WORKING-001',
@@ -154,7 +173,7 @@ export function validateCandidateConstraints(
   // 6. Access Envelope Obstruction Check (Directional Bay Approach Corridors)
   // -------------------------------------------------------------------------
   const accessEnvelopes = candidate.envelopes.filter(
-    (e) => e.type === 'ACCESS' && !e.sourceObjectId.startsWith('aisle-')
+    (e) => e.type === 'ACCESS' && e.sourceObjectId.startsWith('bay-')
   );
 
   for (const accEnv of accessEnvelopes) {

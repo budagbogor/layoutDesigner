@@ -413,6 +413,177 @@ export function buildLayoutTopology(
     }
   }
 
+  if (anc?.customerRestroom) {
+    const custRestroomNode: TopologyNode = {
+      id: 'node-customer-restroom',
+      type: 'CUSTOMER_RESTROOM',
+      name: 'Customer Restroom',
+      intent: 'Dedicated sanitary toilet facility for customers',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.customerRestroom',
+        description: 'Customer restroom requested in program',
+      },
+    };
+    nodes.push(custRestroomNode);
+
+    edges.push({
+      id: 'edge-building-customer-restroom',
+      fromNodeId: buildingNode.id,
+      toNodeId: custRestroomNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-RESTROOM-001',
+      provenance: { source: 'derived', description: 'Customer restroom is inside building shell' },
+    });
+
+    if (loungeNode) {
+      edges.push({
+        id: 'edge-lounge-customer-restroom-accessible',
+        fromNodeId: loungeNode.id,
+        toNodeId: custRestroomNode.id,
+        relation: 'ACCESSIBLE',
+        severity: 'HARD',
+        ruleId: 'FLOW-RESTROOM-001',
+        provenance: { source: 'derived', description: 'Customer restroom is directly accessible from customer lounge' },
+      });
+    }
+  }
+
+  let musholaNode: TopologyNode | undefined;
+  if (anc?.mushola) {
+    musholaNode = {
+      id: 'node-mushola',
+      type: 'MUSHOLA',
+      name: 'Mini Mushola Prayer Room',
+      intent: 'Dedicated prayer space for customers and staff',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.mushola',
+        description: 'Mini mushola requested in program',
+      },
+    };
+    nodes.push(musholaNode);
+
+    edges.push({
+      id: 'edge-building-mushola',
+      fromNodeId: buildingNode.id,
+      toNodeId: musholaNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-MUSHOLA-001',
+      provenance: { source: 'derived', description: 'Mushola is inside building shell' },
+    });
+  }
+
+  if (anc?.wudhu) {
+    const wudhuNode: TopologyNode = {
+      id: 'node-wudhu',
+      type: 'WUDHU',
+      name: 'Wudhu Ablution Facility',
+      intent: 'Ablution facility with min 1 faucet attached to Mushola',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.wudhu',
+        description: 'Wudhu facility requested in program',
+      },
+    };
+    nodes.push(wudhuNode);
+
+    edges.push({
+      id: 'edge-building-wudhu',
+      fromNodeId: buildingNode.id,
+      toNodeId: wudhuNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-WUDHU-001',
+      provenance: { source: 'derived', description: 'Wudhu is inside building shell' },
+    });
+
+    if (musholaNode) {
+      edges.push({
+        id: 'edge-mushola-wudhu-mandatory-adjacency',
+        fromNodeId: musholaNode.id,
+        toNodeId: wudhuNode.id,
+        relation: 'ADJACENT',
+        severity: 'HARD',
+        ruleId: 'ADJACENCY-MUSHOLA-WUDHU-001',
+        description: 'Mushola and Wudhu mandatory adjacency',
+        provenance: {
+          source: 'standard',
+          referenceKey: 'room.min_width.wudhu',
+          description: 'Wudhu must be adjacent to Mushola',
+        },
+      });
+    }
+  }
+
+  let messNode: TopologyNode | undefined;
+  if (anc?.employeeMess) {
+    messNode = {
+      id: 'node-employee-mess',
+      type: 'EMPLOYEE_MESS',
+      name: 'Employee Mess & Rest Quarters',
+      intent: 'Dedicated resting and sleeping quarters for employees (Back-of-House)',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.employeeMess',
+        description: 'Employee mess requested in program',
+      },
+    };
+    nodes.push(messNode);
+
+    edges.push({
+      id: 'edge-building-employee-mess',
+      fromNodeId: buildingNode.id,
+      toNodeId: messNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-MESS-001',
+      provenance: { source: 'derived', description: 'Employee mess is inside building shell' },
+    });
+  }
+
+  if (anc?.employeeRestroom) {
+    const empRestroomNode: TopologyNode = {
+      id: 'node-employee-restroom',
+      type: 'EMPLOYEE_RESTROOM',
+      name: 'Employee Restroom',
+      intent: 'Dedicated sanitary restroom facility for staff (Back-of-House)',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.employeeRestroom',
+        description: 'Employee restroom requested in program',
+      },
+    };
+    nodes.push(empRestroomNode);
+
+    edges.push({
+      id: 'edge-building-employee-restroom',
+      fromNodeId: buildingNode.id,
+      toNodeId: empRestroomNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-EMP-RESTROOM-001',
+      provenance: { source: 'derived', description: 'Employee restroom is inside building shell' },
+    });
+
+    if (messNode) {
+      edges.push({
+        id: 'edge-mess-employee-restroom-adjacent',
+        fromNodeId: messNode.id,
+        toNodeId: empRestroomNode.id,
+        relation: 'ADJACENT',
+        severity: 'SOFT',
+        ruleId: 'PREF-STAFF-001',
+        provenance: {
+          source: 'derived',
+          description: 'Employee restroom is associated with Employee Mess',
+        },
+      });
+    }
+  }
+
   if (anc?.staffRoom) {
     const staffRoomNode: TopologyNode = {
       id: 'node-staff-room',
@@ -568,6 +739,46 @@ export function buildLayoutTopology(
         severity: 'SOFT',
         ruleId: 'PREF-WASTE-001',
         provenance: { source: 'derived', description: 'Oil waste storage collects waste fluid from service bays' },
+      });
+    }
+  }
+
+  if (anc?.wasteStreams) {
+    const wasteNode: TopologyNode = {
+      id: 'node-waste-area',
+      type: 'WASTE_AREA',
+      name: '4-Stream Waste Area (BOH)',
+      intent: 'Dedicated rear area for 4-stream waste management (oil, tire, parts, cardboard)',
+      provenance: {
+        source: 'input',
+        referenceKey: 'program.ancillarySpaces.wasteStreams',
+        description: '4-stream waste area requested in program',
+      },
+      attributes: {
+        streams: anc.wasteStreams,
+      },
+    };
+    nodes.push(wasteNode);
+
+    edges.push({
+      id: 'edge-building-waste-area',
+      fromNodeId: buildingNode.id,
+      toNodeId: wasteNode.id,
+      relation: 'CONNECTED',
+      severity: 'HARD',
+      ruleId: 'STRUCT-WASTE-001',
+      provenance: { source: 'derived', description: 'Waste area is inside building shell' },
+    });
+
+    if (totalBays > 0) {
+      edges.push({
+        id: 'edge-waste-serves-service',
+        fromNodeId: wasteNode.id,
+        toNodeId: 'node-service-zone',
+        relation: 'SERVES',
+        severity: 'SOFT',
+        ruleId: 'PREF-WASTE-001',
+        provenance: { source: 'derived', description: 'Waste area collects operational waste from service bays' },
       });
     }
   }

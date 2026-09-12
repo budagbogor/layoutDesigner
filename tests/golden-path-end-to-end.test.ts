@@ -186,7 +186,7 @@ describe('FASE 4.5 — Golden Path End-to-End Validation', () => {
 
       // Bays
       expect(input.program.bays.length).toBe(1);
-      expect(input.program.bays[0].serviceType).toBe('general_service');
+      expect(input.program.bays[0].serviceType).toBe('SERVICE_BAY');
       expect(input.program.bays[0].quantity).toBe(3);
 
       // Vehicle class key

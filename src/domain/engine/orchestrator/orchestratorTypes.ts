@@ -10,6 +10,7 @@ import { LayoutEngineInput, ObjectEnvelope } from '../types';
 import { LayoutStrategyId, CandidateStatus, CandidateRejection, StrategyCandidate } from '../strategies/strategyTypes';
 import { SpatialArrangementType, GeneratedCandidateLayout } from '../generator/candidateGenerator';
 import { EvaluationResult } from '../evaluation/evaluationTypes';
+import { VehicleFlowAnalysisResult } from '../flow/vehicleFlowFoundation';
 
 /**
  * An individual candidate layout produced and evaluated during orchestration.
@@ -61,6 +62,9 @@ export interface OrchestratedCandidate {
 
   /** Underlying CAD layout including placed objects, envelopes, and topology */
   readonly layout: GeneratedCandidateLayout;
+
+  /** Vehicle flow connectivity and maneuverability analysis */
+  readonly flowAnalysis?: VehicleFlowAnalysisResult;
 }
 
 /**

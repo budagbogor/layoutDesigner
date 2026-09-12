@@ -362,4 +362,160 @@ describe('FASE 3.3 — AI Requirement Parser Contract', () => {
       expect(Object.isFrozen(result)).toBe(true);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 9. Default 4-Wheel Passenger Car & Elimination of Vehicle Clarification
+  // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // 9. Default 4-Wheel Passenger Car & Explicit Restriction Preservation
+  // -------------------------------------------------------------------------
+
+  describe('9. Default 4-Wheel Passenger Car & Explicit Restriction Preservation', () => {
+    const baseExtracted: Partial<WorkshopLayoutRequirement> = {
+      site: { widthMeters: 20, lengthMeters: 35 },
+      building: { widthMeters: 16, lengthMeters: 28 },
+      access: { entryPosition: 'front_left' },
+      services: [{ serviceType: 'general_service', bayCount: 2 }],
+    };
+
+    it('1. "bengkel mobil" → defaults to passenger_4w scope', async () => {
+      const provider = createMockProvider({
+        confidence: 0.9,
+        extractedRequirement: { ...baseExtracted, projectName: 'Bengkel Mobil' },
+        clarificationQuestions: ['Kategori kendaraan apa yang akan dilayani?'],
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Saya ingin bengkel mobil di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('passenger_4w');
+      }
+    });
+
+    it('2. "bengkel mobil modern" → defaults to passenger_4w scope', async () => {
+      const provider = createMockProvider({
+        confidence: 0.9,
+        extractedRequirement: { ...baseExtracted, projectName: 'Bengkel Mobil Modern' },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel mobil modern di lahan 20x35m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('passenger_4w');
+      }
+    });
+
+    it('3. no vehicle clarification question for default case', async () => {
+      const provider = createMockProvider({
+        confidence: 0.85,
+        extractedRequirement: { ...baseExtracted },
+        clarificationQuestions: [
+          'Kategori kendaraan apa yang akan dilayani? (MPV, Sedan, SUV)',
+          'Berapa target kapasitas ruang tunggu?',
+        ],
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel mobil 2 bay servis di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+    });
+
+    it('4. preserves explicit MPV restriction ("khusus MPV")', async () => {
+      const provider = createMockProvider({
+        confidence: 0.85,
+        extractedRequirement: { ...baseExtracted },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel mobil khusus MPV di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('mpv');
+      }
+    });
+
+    it('5. preserves explicit SUV restriction ("khusus SUV")', async () => {
+      const provider = createMockProvider({
+        confidence: 0.85,
+        extractedRequirement: { ...baseExtracted },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel khusus SUV di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('suv');
+      }
+    });
+
+    it('6. preserves explicit Sedan restriction ("khusus sedan")', async () => {
+      const provider = createMockProvider({
+        confidence: 0.85,
+        extractedRequirement: { ...baseExtracted },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel mobil khusus sedan di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('sedan');
+      }
+    });
+
+    it('7. preserves explicit City Car restriction ("khusus city car")', async () => {
+      const provider = createMockProvider({
+        confidence: 0.85,
+        extractedRequirement: { ...baseExtracted },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel mobil khusus city car di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('city_car');
+      }
+    });
+
+    it('8. preserves multiple explicit categories ("khusus MPV dan SUV")', async () => {
+      const provider = createMockProvider({
+        confidence: 0.85,
+        extractedRequirement: { ...baseExtracted },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Bengkel khusus MPV dan SUV di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).toBe('passenger_4w');
+        expect(result.requirement.vehicleCategories).toEqual(expect.arrayContaining(['mpv', 'suv']));
+      }
+    });
+
+    it('9. ensures NO MPV fallback is used for generic "bengkel mobil"', async () => {
+      const provider = createMockProvider({
+        confidence: 0.9,
+        extractedRequirement: { ...baseExtracted },
+      });
+
+      const parser = new AIRequirementParser(provider);
+      const result = await parser.parse('Saya ingin membangun bengkel mobil di lahan 20x35m, bangunan 16x28m');
+
+      expect(result.status).toBe('COMPLETE');
+      if (result.status === 'COMPLETE') {
+        expect(result.requirement.vehicleCategory).not.toBe('mpv');
+        expect(result.requirement.vehicleCategory).toBe('passenger_4w');
+      }
+    });
+  });
 });

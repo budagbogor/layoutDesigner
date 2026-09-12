@@ -120,7 +120,7 @@ describe('FASE 3.4 — RequirementMapper', () => {
       expect(input.building.width).toBe(12);
       expect(input.building.length).toBe(20);
       expect(input.program.bays).toHaveLength(1);
-      expect(input.program.bays[0].serviceType).toBe('general_service');
+      expect(input.program.bays[0].serviceType).toBe('SERVICE_BAY');
       expect(input.program.bays[0].quantity).toBe(3);
       expect(input.program.vehicleClassKey).toBe('vehicle.mpv');
       expect(input.program.customerZoneRequired).toBe(false);
@@ -224,39 +224,88 @@ describe('FASE 3.4 — RequirementMapper', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 3. Service → Bays Mapping
+  // 3. Service → Bays Mapping & Physical Bay Consolidation
   // -------------------------------------------------------------------------
 
   describe('3. Service → Bays Mapping', () => {
-    it('maps multiple service program items to ProgramBayRequirement[]', () => {
+    it('consolidates service functions into canonical physical bays in LayoutEngineInput', () => {
       const accessor = new StandardAccessor(completeStandard);
       const result = mapper.map(fullRequirement, accessor);
       const bays = result.engineInput!.program.bays;
 
-      expect(bays).toHaveLength(3);
-      expect(bays[0]).toEqual({ serviceType: 'general_service', quantity: 4, requiredEquipment: ['2_post_lift'] });
-      expect(bays[1]).toEqual({ serviceType: 'quick_lube', quantity: 2, requiredEquipment: undefined });
-      expect(bays[2]).toEqual({ serviceType: 'tire_service', quantity: 1, requiredEquipment: ['scissor_lift'] });
+      // general_service x4 and quick_lube x2 consolidate into 4 SERVICE_BAYs
+      expect(bays).toHaveLength(1);
+      expect(bays[0]).toEqual({
+        serviceType: 'SERVICE_BAY',
+        quantity: 4,
+        requiredEquipment: ['4_post_lift'],
+      });
     });
 
-    it('maps equipment preferences and lift requirements to equipment list', () => {
+    it('maps equipment preferences and lift requirements to equipment list without double counting', () => {
       const accessor = new StandardAccessor(completeStandard);
       const result = mapper.map(fullRequirement, accessor);
       const equipment = result.engineInput!.program.equipment;
 
-      // 2_post_lift: 4 (from general_service x4), scissor_lift: 1 (from tire_service x1)
-      // + tire_changer: 1 (preference), wheel_balancer: 1 (preference)
-      const liftEquip = equipment.find((e) => e.equipmentType === '2_post_lift');
+      // 4 SERVICE_BAY with 4_post_lift = 4
+      const liftEquip = equipment.find((e) => e.equipmentType === '4_post_lift');
       expect(liftEquip).toBeDefined();
       expect(liftEquip!.quantity).toBe(4);
-
-      const scissor = equipment.find((e) => e.equipmentType === 'scissor_lift');
-      expect(scissor).toBeDefined();
-      expect(scissor!.quantity).toBe(1);
 
       const changer = equipment.find((e) => e.equipmentType === 'tire_changer');
       expect(changer).toBeDefined();
       expect(changer!.quantity).toBe(1);
+
+      const balancer = equipment.find((e) => e.equipmentType === 'wheel_balancer');
+      expect(balancer).toBeDefined();
+      expect(balancer!.quantity).toBe(1);
+    });
+
+    it('maps exact real-world scenario (2 general service + 1 quick lube + 1 detailing + 1 spooring) to 3 physical bays', () => {
+      const accessor = new StandardAccessor(completeStandard);
+      const realWorldReq: WorkshopLayoutRequirement = {
+        projectName: 'Bengkel Real World 3 Bay',
+        workshopType: 'car_service',
+        vehicleCategory: 'passenger_4w',
+        priority: 'PREMIUM_EXPERIENCE',
+        site: { widthMeters: 20, lengthMeters: 35, roadOrientation: 'south' },
+        building: { widthMeters: 16, lengthMeters: 28, frontSetbackMeters: 5 },
+        access: { entryPosition: 'front_left', exitPosition: 'rear_center' },
+        services: [
+          { serviceType: 'general_service', bayCount: 2 },
+          { serviceType: 'quick_lube', bayCount: 1 },
+          { serviceType: 'detailing', bayCount: 1 },
+          { serviceType: 'wheel_alignment', bayCount: 1 },
+        ],
+        ancillarySpaces: {
+          customerLounge: true,
+          cashierOffice: true,
+          partsWarehouse: true,
+          restroom: true,
+          compressorRoom: true,
+          loungeWithBayView: true,
+        },
+      };
+
+      const result = mapper.map(realWorldReq, accessor);
+      expect(result.success).toBe(true);
+      expect(result.engineInput).toBeDefined();
+
+      const bays = result.engineInput!.program.bays;
+      // Exactly 2 physical bay entries: SERVICE_BAY (2) + SPOORING_BAY (1) = 3 physical bays total
+      expect(bays).toHaveLength(2);
+
+      const serviceBay = bays.find((b) => b.serviceType === 'SERVICE_BAY');
+      const spooringBay = bays.find((b) => b.serviceType === 'SPOORING_BAY');
+
+      expect(serviceBay).toBeDefined();
+      expect(serviceBay!.quantity).toBe(2);
+
+      expect(spooringBay).toBeDefined();
+      expect(spooringBay!.quantity).toBe(1);
+
+      const totalPhysicalBays = bays.reduce((sum, b) => sum + b.quantity, 0);
+      expect(totalPhysicalBays).toBe(3);
     });
   });
 

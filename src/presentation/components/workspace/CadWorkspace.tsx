@@ -25,6 +25,9 @@ import { PropertiesPanel, SiteBuildingInspector } from '../panels/PropertiesPane
 import { LayersPanel } from '../panels/LayersPanel';
 import { ValidationPanel } from '../panels/ValidationPanel';
 import { AlternativeLayoutPanel } from '../panels/AlternativeLayoutPanel';
+import { analyzeVehicleFlow, VehicleFlowAnalysisResult } from '@/domain/engine/flow/vehicleFlowFoundation';
+import { LayoutSummaryPanel } from '../panels/LayoutSummaryPanel';
+import { WorkshopLayoutRequirement } from '@/domain/requirements/requirementTypes';
 
 export interface CadWorkspaceProps {
   initialProject: WorkshopProject;
@@ -33,9 +36,15 @@ export interface CadWorkspaceProps {
   activeCandidateId?: string | null;
   onActiveCandidateChange?: (candidateId: string) => void;
   projectRepository?: IProjectRepository;
+  successToast?: string | null;
+  onDismissSuccessToast?: () => void;
+  /** Phase 3.3: Original requirement for Layout Summary & Traceability */
+  requirement?: WorkshopLayoutRequirement | null;
+  /** Phase 3.3: True if generation completed successfully */
+  hasGeneratedLayout?: boolean;
 }
 
-export type SidebarTab = 'alternatives' | 'site_building' | 'properties' | 'layers' | 'validation';
+export type SidebarTab = 'summary' | 'alternatives' | 'site_building' | 'properties' | 'layers' | 'validation';
 
 export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
   initialProject,
@@ -44,6 +53,10 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
   activeCandidateId = null,
   onActiveCandidateChange,
   projectRepository,
+  successToast = null,
+  onDismissSuccessToast,
+  requirement = null,
+  hasGeneratedLayout = false,
 }) => {
   const store = useMemo(() => new CadStore(initialProject), [initialProject]);
   const [editorState, setEditorState] = useState(() => store.getState());
@@ -51,9 +64,11 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SidebarTab>(
-    layoutEngineResult?.alternativeCandidates && layoutEngineResult.alternativeCandidates.length > 0
-      ? 'alternatives'
-      : 'properties'
+    hasGeneratedLayout || (layoutEngineResult?.bestCandidate?.isValid)
+      ? 'summary'
+      : layoutEngineResult?.alternativeCandidates && layoutEngineResult.alternativeCandidates.length > 0
+        ? 'alternatives'
+        : 'properties'
   );
   const [currentCandidateId, setCurrentCandidateId] = useState<string | null>(
     activeCandidateId ?? (layoutEngineResult?.bestCandidate?.candidateId ?? null)
@@ -86,6 +101,28 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
       setHeaderProjectName(newState.project.project.name);
     });
   }, [store]);
+
+  const activeCandidate = useMemo(() => {
+    if (!layoutEngineResult) return null;
+    if (layoutEngineResult.bestCandidate?.candidateId === currentCandidateId) {
+      return layoutEngineResult.bestCandidate;
+    }
+    return (
+      layoutEngineResult.alternativeCandidates?.find(
+        (c) => c.candidateId === currentCandidateId
+      ) ?? layoutEngineResult.bestCandidate
+    );
+  }, [layoutEngineResult, currentCandidateId]);
+
+  const activeFlowAnalysis = useMemo<VehicleFlowAnalysisResult | null>(() => {
+    if (activeCandidate?.flowAnalysis) {
+      return activeCandidate.flowAnalysis;
+    }
+    if (engineInput && activeCandidate?.layout) {
+      return analyzeVehicleFlow(engineInput, activeCandidate.layout);
+    }
+    return null;
+  }, [activeCandidate, engineInput]);
 
   const {
     project,
@@ -302,8 +339,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
       <header className="cad-header">
         <div className="brand-section">
           <span className="brand-badge">CAD</span>
-          <span className="brand-title">Mobeng Workshop Designer</span>
-          <span className="header-status-badge">M1 — Lifecycle</span>
+          <span className="brand-title">Mobeng Workshop Studio</span>
         </div>
 
         {/* Project Name & Lifecycle Controls */}
@@ -328,14 +364,14 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             }}
           >
             <span>📂</span>
-            <span>Projects</span>
+            <span>Buka Proyek</span>
           </button>
 
           {/* New Project Trigger */}
           <button
             onClick={handleNewProject}
             data-testid="btn-new-project"
-            title="Create New Blank Project"
+            title="Buat Proyek Baru"
             style={{
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-color)',
@@ -351,7 +387,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             }}
           >
             <span>＋</span>
-            <span>New</span>
+            <span>Proyek Baru</span>
           </button>
 
           {/* Active Project Title & Rename */}
@@ -460,7 +496,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             {isDirty && (
               <span
                 data-testid="badge-unsaved"
-                title="Unsaved changes in workspace"
+                title="Ada perubahan yang belum disimpan"
                 style={{
                   fontSize: '9px',
                   color: '#e3b341',
@@ -471,7 +507,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                   fontWeight: 'bold',
                 }}
               >
-                ● Unsaved
+                ● Belum Disimpan
               </span>
             )}
           </div>
@@ -527,12 +563,12 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             </span>
             <span data-testid="save-status-text">
               {saveStatus === 'saving'
-                ? 'Saving...'
+                ? 'Menyimpan...'
                 : saveStatus === 'saved'
-                ? 'Saved'
+                ? 'Tersimpan'
                 : saveStatus === 'error'
-                ? 'Save Failed'
-                : 'Save'}
+                ? 'Gagal Simpan'
+                : 'Simpan'}
             </span>
           </button>
 
@@ -582,7 +618,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
           <button
             onClick={() => importFileInputRef.current?.click()}
             data-testid="btn-import-project"
-            title="Import Project from JSON file"
+            title="Impor Proyek dari file JSON"
             style={{
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-color)',
@@ -598,7 +634,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             }}
           >
             <span>📥</span>
-            <span>Import</span>
+            <span>Impor</span>
           </button>
 
           {/* Export Dropdown Menu */}
@@ -606,7 +642,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             <button
               onClick={() => setIsExportMenuOpen((prev) => !prev)}
               data-testid="btn-export-menu"
-              title="Export CAD & Project Deliverables"
+              title="Ekspor CAD & Dokumen Proyek"
               style={{
                 background: 'rgba(0, 210, 255, 0.15)',
                 border: '1px solid rgba(0, 210, 255, 0.4)',
@@ -622,7 +658,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
               }}
             >
               <span>📤</span>
-              <span>Export ▾</span>
+              <span>Ekspor ▾</span>
             </button>
 
             {isExportMenuOpen && (
@@ -694,7 +730,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <span>🖼️</span>
-                  <span>Export Vector SVG (.svg)</span>
+                  <span>Ekspor Vektor SVG (.svg)</span>
                 </button>
 
                 <button
@@ -720,7 +756,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <span>📐</span>
-                  <span>Export CAD DXF (.dxf)</span>
+                  <span>Ekspor CAD DXF (.dxf)</span>
                 </button>
               </div>
             )}
@@ -732,7 +768,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
               setActiveTab('site_building');
             }}
             data-testid="btn-open-site-building"
-            title="Open Site & Building Parameter Inspector"
+            title="Buka Inspector Parameter Tapak & Bangunan"
             style={{
               background: activeTab === 'site_building' ? 'rgba(0, 210, 255, 0.15)' : 'var(--bg-panel)',
               border: `1px solid ${activeTab === 'site_building' ? 'var(--accent-cyan)' : 'var(--border-color)'}`,
@@ -747,12 +783,12 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             }}
           >
             <span>🏢</span>
-            <span>Site/Building</span>
+            <span>Bangunan</span>
           </button>
 
           <button
             onClick={handleResetView}
-            title="Reset Pan and Zoom to Fit Building"
+            title="Reset Pan dan Zoom agar Sesuai dengan Bangunan"
             style={{
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-color)',
@@ -763,7 +799,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
               cursor: 'pointer',
             }}
           >
-            Reset View
+            Reset Tampilan
           </button>
         </div>
       </header>
@@ -792,27 +828,54 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
               height: '36px',
               borderBottom: '1px solid var(--border-color)',
               background: 'var(--bg-secondary)',
+              overflowX: 'auto',
             }}
           >
+            {/* Summary Tab */}
+            <button
+              onClick={() => setActiveTab('summary')}
+              data-testid="tab-summary"
+              style={{
+                flex: 1,
+                minWidth: '52px',
+                background: activeTab === 'summary' ? 'var(--bg-panel)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'summary' ? '2px solid var(--accent-cyan)' : 'none',
+                color: activeTab === 'summary' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                fontSize: '10px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '3px',
+                padding: '0 4px',
+              }}
+            >
+              <span>📋</span>
+              <span>Summary</span>
+            </button>
             <button
               onClick={() => setActiveTab('alternatives')}
               data-testid="tab-alternatives"
               style={{
                 flex: 1,
+                minWidth: '52px',
                 background: activeTab === 'alternatives' ? 'var(--bg-panel)' : 'transparent',
                 border: 'none',
                 borderBottom: activeTab === 'alternatives' ? '2px solid var(--accent-cyan)' : 'none',
                 color: activeTab === 'alternatives' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                fontSize: '11px',
+                fontSize: '10px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '4px',
+                padding: '0 4px',
               }}
             >
-              <span>Layouts</span>
+              <span>Alternatif</span>
               {candidateCount > 0 && (
                 <span
                   style={{
@@ -846,7 +909,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                 cursor: 'pointer',
               }}
             >
-              Site/Bldg
+              Bangunan
             </button>
 
             <button
@@ -863,7 +926,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                 cursor: 'pointer',
               }}
             >
-              Properties
+              Properti
             </button>
 
             <button
@@ -880,7 +943,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                 cursor: 'pointer',
               }}
             >
-              Layers
+              Layer
             </button>
 
             <button
@@ -901,7 +964,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                 gap: '4px',
               }}
             >
-              <span>Validation</span>
+              <span>Validasi</span>
               {validationReport.hardCount > 0 && (
                 <span
                   style={{
@@ -921,6 +984,14 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
 
           {/* Active Tab Panel Content */}
           <div className="sidebar-panel-content" style={{ padding: '14px', overflowY: 'auto' }}>
+            {activeTab === 'summary' && (
+              <LayoutSummaryPanel
+                requirement={requirement}
+                activeLayoutObjects={hasGeneratedLayout ? project.layout.objects : null}
+                hasGeneratedLayout={hasGeneratedLayout}
+              />
+            )}
+
             {activeTab === 'alternatives' && (
               <AlternativeLayoutPanel
                 layoutEngineResult={layoutEngineResult}
@@ -963,6 +1034,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
             {activeTab === 'validation' && (
               <ValidationPanel
                 report={validationReport}
+                flowAnalysis={activeFlowAnalysis}
                 onSelectObject={handleSelectObjectFromValidation}
               />
             )}
@@ -970,14 +1042,50 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
         </aside>
       </div>
 
+      {/* Success Toast */}
+      {successToast && (
+        <div
+          data-testid="success-toast"
+          className="toast-success"
+          style={{
+            position: 'fixed',
+            bottom: '40px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(35, 134, 54, 0.95)',
+            border: '1px solid rgba(63, 185, 80, 0.6)',
+            color: '#ffffff',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: 700,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            animation: 'slideInUp 0.3s ease',
+          }}
+        >
+          <span>{successToast}</span>
+          <button
+            type="button"
+            onClick={onDismissSuccessToast}
+            style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', fontSize: '14px', padding: '0 2px' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* CAD Status Bar */}
       <footer className="cad-footer">
         <div>
           X: {cursorCad ? cursorCad.x.toFixed(3) : '0.000'} m &nbsp;|&nbsp; Y: {cursorCad ? cursorCad.y.toFixed(3) : '0.000'} m
         </div>
         <div style={{ display: 'flex', gap: '16px' }}>
-          <span>Objects: {project.layout.objects.length}</span>
-          <span>Selected: {selectedIds.length}</span>
+          <span>Objek: {project.layout.objects.length}</span>
+          <span>Dipilih: {selectedIds.length}</span>
           <span>Grid: {viewport.gridSize.toFixed(2)} m (Snap: {viewport.snapEnabled ? 'ON' : 'OFF'})</span>
           <span>Zoom: {(viewport.zoom * 100).toFixed(0)}%</span>
         </div>
@@ -1051,7 +1159,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
@@ -1068,7 +1176,7 @@ export const CadWorkspace: React.FC<CadWorkspaceProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                Discard &amp; Continue
+                Buang Perubahan
               </button>
             </div>
           </div>

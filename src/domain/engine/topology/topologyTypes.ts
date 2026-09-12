@@ -15,11 +15,17 @@ export type TopologyNodeType =
   | 'CUSTOMER_LOUNGE'
   | 'CASHIER_OFFICE'
   | 'RESTROOM'
+  | 'CUSTOMER_RESTROOM'
+  | 'MUSHOLA'
+  | 'WUDHU'
   | 'STAFF_ROOM'
-  // Fine-Grained Ancillary Program Spaces (Operational / Service)
+  // Fine-Grained Ancillary Program Spaces (Operational / Service / Back-of-House)
   | 'PARTS_WAREHOUSE'
   | 'COMPRESSOR_ROOM'
   | 'OIL_WASTE_STORAGE'
+  | 'WASTE_AREA'
+  | 'EMPLOYEE_MESS'
+  | 'EMPLOYEE_RESTROOM'
   // Site Parking Spaces
   | 'CUSTOMER_PARKING'
   | 'STAFF_PARKING'

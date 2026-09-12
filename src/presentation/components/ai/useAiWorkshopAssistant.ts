@@ -14,7 +14,7 @@
 // - Never exposes raw apiKey in error messages
 // ---------------------------------------------------------------------------
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   AIProviderConfig,
   ConnectionTestResult,
@@ -28,6 +28,7 @@ import {
 } from '../../../application/ai/requirementParser';
 import { SumoPodAdapter } from '../../../infrastructure/ai/sumopodAdapter';
 import { SumoPodRequirementProvider } from '../../../infrastructure/ai/sumopodRequirementProvider';
+import { EXAMPLE_PROMPT_PRESETS } from './AiRequirementInputPanel';
 
 export interface UseAiWorkshopAssistantOptions {
   readonly initialBaseUrl?: string;
@@ -54,6 +55,8 @@ export interface UseAiWorkshopAssistantReturn {
   readonly analysisResult: AIParseResult | null;
   readonly analysisError: string | null;
 
+  readonly isSavingConfig: boolean;
+
   // Actions
   readonly setApiKey: (key: string) => void;
   readonly setModel: (model: string) => void;
@@ -64,6 +67,7 @@ export interface UseAiWorkshopAssistantReturn {
   readonly loadModels: (overrideFetch?: typeof fetch) => Promise<readonly string[]>;
   readonly analyzeRequirement: (overrideFetch?: typeof fetch) => Promise<AIParseResult | null>;
   readonly resetAnalysis: () => void;
+  readonly saveConfig: (scope: 'local' | 'global') => Promise<void>;
 }
 
 export function useAiWorkshopAssistant(
@@ -72,15 +76,34 @@ export function useAiWorkshopAssistant(
   // State: Provider
   const [providerId] = useState(SUMOPOD_PROVIDER_ID);
   const [baseUrl, setBaseUrl] = useState(options.initialBaseUrl || SUMOPOD_DEFAULT_BASE_URL);
-  const [apiKey, setApiKey] = useState(options.initialApiKey || '');
-  const [model, setModel] = useState(options.initialModel || '');
-  const [availableModels, setAvailableModels] = useState<readonly string[]>([]);
+  const [apiKey, setApiKey] = useState(options.initialApiKey || 'demo');
+  const [model, setModel] = useState(options.initialModel || 'gpt-4o-mini');
+  const [availableModels, setAvailableModels] = useState<readonly string[]>([
+    'gpt-4o-mini',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5',
+  ]);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [connectionResult, setConnectionResult] = useState<ConnectionTestResult | null>(null);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const localApiKey = localStorage.getItem('mobeng_ai_apiKey');
+      const localBaseUrl = localStorage.getItem('mobeng_ai_baseUrl');
+      const localModel = localStorage.getItem('mobeng_ai_model');
+      if (localApiKey) setApiKey(localApiKey);
+      if (localBaseUrl) setBaseUrl(localBaseUrl);
+      if (localModel) setModel(localModel);
+    }
+  }, []);
 
   // State: Requirement Input & Analysis
-  const [prompt, setPrompt] = useState(options.initialPrompt || '');
+  const [prompt, setPrompt] = useState(
+    options.initialPrompt || EXAMPLE_PROMPT_PRESETS[1]?.text || ''
+  );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AIParseResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -259,6 +282,30 @@ export function useAiWorkshopAssistant(
     setAnalysisError(null);
   }, []);
 
+  const saveConfig = useCallback(async (scope: 'local' | 'global') => {
+    setIsSavingConfig(true);
+    try {
+      if (scope === 'local') {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mobeng_ai_apiKey', apiKey);
+          localStorage.setItem('mobeng_ai_baseUrl', baseUrl);
+          localStorage.setItem('mobeng_ai_model', model);
+        }
+      } else {
+        const res = await fetch('/api/config/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey, baseUrl, model }),
+        });
+        if (!res.ok) {
+          throw new Error('Gagal menyimpan konfigurasi global.');
+        }
+      }
+    } finally {
+      setIsSavingConfig(false);
+    }
+  }, [apiKey, baseUrl, model]);
+
   return {
     providerId,
     baseUrl,
@@ -268,6 +315,7 @@ export function useAiWorkshopAssistant(
     isTestingConnection,
     isLoadingModels,
     connectionResult,
+    isSavingConfig,
     prompt,
     isAnalyzing,
     analysisResult,
@@ -281,5 +329,6 @@ export function useAiWorkshopAssistant(
     loadModels,
     analyzeRequirement,
     resetAnalysis,
+    saveConfig,
   };
 }

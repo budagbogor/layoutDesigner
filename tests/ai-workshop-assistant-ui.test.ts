@@ -323,7 +323,7 @@ describe('FASE 3.7 — AI Workshop Design Assistant UI', () => {
       expect(html).toContain('Bengkel Mobeng Serpong');
       expect(html).toContain('20m × 30m');
       expect(html).toContain('15m × 22m');
-      expect(html).toContain('general_service');
+      expect(html).toContain('General Service');
       expect(html).toContain('3 Bay');
       expect(html).toContain('Ruang Tunggu');
       expect(html).toContain('Kantor Kasir');
@@ -484,17 +484,18 @@ describe('FASE 3.7 — AI Workshop Design Assistant UI', () => {
   // 11. Example Prompts Presets
   // -------------------------------------------------------------------------
 
-  describe('11. Example Prompts Presets', () => {
-    it('provides all 4 requested presets (kecil, keluarga, banyak bay, premium)', () => {
-      expect(EXAMPLE_PROMPT_PRESETS).toHaveLength(4);
+  describe('11. Example Prompts Presets (Primary Scale Modes: Compact, Medium, Big)', () => {
+    it('provides exactly 3 primary scale presets (Compact, Medium, Big)', () => {
+      expect(EXAMPLE_PROMPT_PRESETS).toHaveLength(3);
       const labels = EXAMPLE_PROMPT_PRESETS.map((p) => p.label);
-      expect(labels.some((l) => l.includes('Kecil'))).toBe(true);
-      expect(labels.some((l) => l.includes('Keluarga'))).toBe(true);
-      expect(labels.some((l) => l.includes('Banyak Bay'))).toBe(true);
-      expect(labels.some((l) => l.includes('Premium'))).toBe(true);
+      expect(labels.some((l) => l.includes('Compact'))).toBe(true);
+      expect(labels.some((l) => l.includes('Medium'))).toBe(true);
+      expect(labels.some((l) => l.includes('Big'))).toBe(true);
+      expect(labels.some((l) => l.includes('Keluarga'))).toBe(false);
+      expect(labels.some((l) => l.includes('Medium Premium'))).toBe(false);
     });
 
-    it('renders presets in AiRequirementInputPanel', () => {
+    it('renders presets in AiRequirementInputPanel with exactly Compact, Medium, Big', () => {
       const html = renderToStaticMarkup(
         React.createElement(AiRequirementInputPanel, {
           prompt: '',
@@ -506,10 +507,11 @@ describe('FASE 3.7 — AI Workshop Design Assistant UI', () => {
         })
       );
 
-      expect(html).toContain('Bengkel Kecil');
-      expect(html).toContain('Bengkel Keluarga');
-      expect(html).toContain('Banyak Bay');
-      expect(html).toContain('Bengkel Premium');
+      expect(html).toContain('Compact');
+      expect(html).toContain('Medium');
+      expect(html).toContain('Big');
+      expect(html).not.toContain('Bengkel Keluarga');
+      expect(html).not.toContain('Medium Premium');
     });
   });
 });

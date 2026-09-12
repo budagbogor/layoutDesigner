@@ -38,6 +38,7 @@ import {
 } from './orchestratorTypes';
 import { WorkshopLayoutRequirement } from '../../requirements/requirementTypes';
 import { RequirementMapper } from '../../../application/requirements/requirementMapper';
+import { analyzeVehicleFlow } from '../flow/vehicleFlowFoundation';
 
 /**
  * Deterministic Layout Generation Orchestrator.
@@ -202,6 +203,7 @@ export class LayoutOrchestrator {
           }),
           attemptedArrangements: Object.freeze([...targetArrangements]),
           layout: layoutCandidate,
+          flowAnalysis: Object.freeze(analyzeVehicleFlow(input, layoutCandidate, accessor)),
         });
 
         allCandidates.push(orchestrated);

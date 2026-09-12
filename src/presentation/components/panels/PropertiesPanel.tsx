@@ -12,6 +12,15 @@ import { normalizeAngle, getGeometryAABB } from '@/domain/geometry/primitives';
 import { STANDARD_CAD_LAYERS } from '@/application/state/CadStore';
 import { parseDecimalInput } from '@/presentation/utils/decimalParser';
 
+import {
+  deriveFunctionalZone,
+  FUNCTIONAL_ZONE_LABELS,
+  FUNCTIONAL_ZONE_COLORS,
+  getHumanObjectLabel,
+  getHumanObjectTypeLabel,
+  getObjectServicesList,
+} from '@/domain/models/functionalZone';
+
 interface PropertiesPanelProps {
   selectedObject: LayoutObject | null;
   building: BuildingDefinition;
@@ -22,6 +31,7 @@ interface PropertiesPanelProps {
   onUpdateObject: (id: string, updates: Partial<Omit<LayoutObject, 'id'>>) => void;
   onDelete: (id: string) => void;
 }
+
 
 const OBJECT_TYPES: { value: CadObjectType; label: string }[] = [
   { value: 'service_bay', label: 'Service Bay' },
@@ -379,6 +389,75 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           🗑 Delete
         </button>
       </div>
+
+      {/* Functional Zone & Human Summary Card */}
+      {(() => {
+        const zone = deriveFunctionalZone(selectedObject);
+        const zoneColors = FUNCTIONAL_ZONE_COLORS[zone];
+        const humanName = getHumanObjectLabel(selectedObject);
+        const humanType = getHumanObjectTypeLabel(selectedObject);
+        const services = getObjectServicesList(selectedObject);
+
+        return (
+          <div
+            data-testid="functional-zone-inspector-card"
+            style={{
+              background: zoneColors.fill,
+              border: `1px solid ${zoneColors.stroke}`,
+              borderRadius: '6px',
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                {humanName}
+              </span>
+              <span
+                style={{
+                  background: zoneColors.badgeBg,
+                  color: zoneColors.badgeText,
+                  border: `1px solid ${zoneColors.badgeBorder}`,
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 6px',
+                  borderRadius: '10px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {FUNCTIONAL_ZONE_LABELS[zone]}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '11px', marginTop: '2px' }}>
+              <div>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Jenis</div>
+                <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{humanType}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ukuran</div>
+                <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                  {geometry.width.toFixed(2)} × {geometry.length.toFixed(2)} m
+                </div>
+              </div>
+            </div>
+
+            {services.length > 0 && (
+              <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '6px', marginTop: '2px', fontSize: '11px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>
+                  Fungsi &amp; Layanan:
+                </div>
+                <div style={{ color: zoneColors.text, fontWeight: 600 }}>
+                  {services.join(' · ')}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
 
       {/* Object Type & Layer */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
