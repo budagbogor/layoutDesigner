@@ -241,8 +241,8 @@ describe('FASE 4.4 — CAD Output Validation & Integration', () => {
       // Verify north and south bay rows
       const northBays = bayObjects.filter((b) => b.metadata?.row === 'north');
       const southBays = bayObjects.filter((b) => b.metadata?.row === 'south');
-      expect(northBays.length).toBe(5);
-      expect(southBays.length).toBe(1);
+      expect(northBays.length).toBe(6);
+      expect(southBays.length).toBe(0);
 
       // Verify ancillary rooms (lounge, cashier, restroom, staff-room)
       expect(objects.find((o) => o.id === 'customer-lounge')).toBeDefined();

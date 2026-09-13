@@ -50,6 +50,7 @@ describe('M2B.1 — REAR / BACK-OF-HOUSE SPATIAL ZONING FOUNDATION', () => {
   describe('1 & 2. Employee Mess Spatial Placement', () => {
     it('1. places Employee Mess with exact PO-approved 3m x 6m dimensions', () => {
       const candidate = generator.generate(baseInput, accessor);
+      if (candidate.status !== 'VALID') console.log('REJECTIONS:', candidate.rejections);
       expect(candidate.status).toBe('VALID');
 
       const messObj = candidate.objects.find((o) => o.id === 'employee-mess');

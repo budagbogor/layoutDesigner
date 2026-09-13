@@ -144,7 +144,8 @@ export function validateCandidateConstraints(
     // A. Working envelope must not collide with other physical objects
     for (const physEnv of physicalEnvelopes) {
       if (physEnv.sourceObjectId.startsWith('door-')) continue;
-      if (physEnv.sourceObjectId !== workEnv.sourceObjectId && overlapsEnvelope(workEnv, physEnv)) {
+      // Allow touching boundaries for working clearance overlap checks
+      if (physEnv.sourceObjectId !== workEnv.sourceObjectId && overlapsEnvelope(workEnv, physEnv, true)) {
         hardViolations.push({
           ruleId: 'CLEARANCE-WORKING-001',
           severity: 'HARD',

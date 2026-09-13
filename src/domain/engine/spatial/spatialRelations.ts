@@ -90,10 +90,10 @@ export function containsEnvelope(container: SpatialEntity, target: SpatialEntity
  * Uses AABB broad-phase test followed by pure 2D SAT narrow-phase test.
  * Preserves rotation and millimeter precision.
  */
-export function overlapsEnvelope(a: SpatialEntity, b: SpatialEntity): boolean {
+export function overlapsEnvelope(a: SpatialEntity, b: SpatialEntity, allowTouchingBoundaries: boolean = false): boolean {
   const geoA = extractGeometry(a);
   const geoB = extractGeometry(b);
-  return geometriesIntersect(geoA, geoB);
+  return geometriesIntersect(geoA, geoB, 'bottom-left', allowTouchingBoundaries);
 }
 
 /**

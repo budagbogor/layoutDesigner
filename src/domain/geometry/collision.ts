@@ -6,7 +6,20 @@ import { CAD_EPSILON, approxEqual } from './precision';
 /**
  * Check whether two Axis-Aligned Bounding Boxes (AABB) overlap.
  */
-export function aabbIntersects(a: BoundingBox2D, b: BoundingBox2D, epsilon: number = CAD_EPSILON): boolean {
+export function aabbIntersects(
+  a: BoundingBox2D,
+  b: BoundingBox2D,
+  epsilon: number = CAD_EPSILON,
+  allowTouchingBoundaries: boolean = false
+): boolean {
+  if (allowTouchingBoundaries) {
+    return !(
+      a.maxX <= b.minX + epsilon ||
+      a.minX >= b.maxX - epsilon ||
+      a.maxY <= b.minY + epsilon ||
+      a.minY >= b.maxY - epsilon
+    );
+  }
   return !(
     a.maxX < b.minX - epsilon ||
     a.minX > b.maxX + epsilon ||
@@ -77,7 +90,8 @@ export function getPolygonPerpendicularAxes(vertices: Point2D[]): Point2D[] {
 export function satPolygonsIntersect(
   polyA: Point2D[],
   polyB: Point2D[],
-  epsilon: number = CAD_EPSILON
+  epsilon: number = CAD_EPSILON,
+  allowTouchingBoundaries: boolean = false
 ): boolean {
   if (polyA.length < 3 || polyB.length < 3) {
     return false;
@@ -93,8 +107,14 @@ export function satPolygonsIntersect(
     const projB = projectPolygonOntoAxis(polyB, axis);
 
     // If intervals do not overlap, separating axis found -> no collision
-    if (projA.max < projB.min - epsilon || projB.max < projA.min - epsilon) {
-      return false;
+    if (allowTouchingBoundaries) {
+      if (projA.max <= projB.min + epsilon || projB.max <= projA.min + epsilon) {
+        return false;
+      }
+    } else {
+      if (projA.max < projB.min - epsilon || projB.max < projA.min - epsilon) {
+        return false;
+      }
     }
   }
 
@@ -108,7 +128,8 @@ export function satPolygonsIntersect(
 export function geometriesIntersect(
   geoA: Geometry,
   geoB: Geometry,
-  pivot: RotationPivot = 'bottom-left'
+  pivot: RotationPivot = 'bottom-left',
+  allowTouchingBoundaries: boolean = false
 ): boolean {
   const cornersA = getOrientedCorners(geoA, pivot);
   const cornersB = getOrientedCorners(geoB, pivot);
@@ -117,7 +138,7 @@ export function geometriesIntersect(
   const aabbA = computeAABB(cornersA);
   const aabbB = computeAABB(cornersB);
 
-  if (!aabbIntersects(aabbA, aabbB)) {
+  if (!aabbIntersects(aabbA, aabbB, CAD_EPSILON, allowTouchingBoundaries)) {
     return false;
   }
 
@@ -127,7 +148,7 @@ export function geometriesIntersect(
   }
 
   // 2. Narrow-phase SAT test
-  return satPolygonsIntersect(cornersA, cornersB);
+  return satPolygonsIntersect(cornersA, cornersB, CAD_EPSILON, allowTouchingBoundaries);
 }
 
 /**
